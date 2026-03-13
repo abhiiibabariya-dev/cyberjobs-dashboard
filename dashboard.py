@@ -3,6 +3,7 @@ SOC Analyst L1 - Live AI Job Hunter Dashboard
 Flask web app with real-time job scanning, one-click apply, and public URL via ngrok.
 """
 
+import glob
 import json
 import os
 import re
@@ -1788,6 +1789,19 @@ def _extract_resume_summary(resume_path):
         return ""
 
 
+def _find_user_resume(user_id):
+    """Auto-detect a user's resume from the resumes/ folder."""
+    resumes_dir = os.path.join(SCRIPT_DIR, "resumes")
+    if not os.path.isdir(resumes_dir):
+        return ""
+    pattern = os.path.join(resumes_dir, f"{user_id}_*")
+    matches = glob.glob(pattern)
+    if matches:
+        matches.sort(key=os.path.getmtime, reverse=True)
+        return matches[0]
+    return ""
+
+
 def send_email_brevo(to_email, job, user=None):
     """Send application email from the user's email. BCC the user a copy."""
     api_key = CONFIG.get("brevo", {}).get("api_key", "")
@@ -1798,15 +1812,26 @@ def send_email_brevo(to_email, job, user=None):
     if user:
         sender_name = user["name"]
         user_email = user["email"]
-        resume_path = user.get("resume_path", "")
         profile = user.get("profile", {})
+        # Always auto-detect resume from resumes/ folder for the user
+        user_id = None
+        for uid, u in USERS.items():
+            if u is user:
+                user_id = uid
+                break
+        resume_path = ""
+        if user_id:
+            resume_path = _find_user_resume(user_id)
+        # Fallback to stored path only if auto-detect found nothing
+        if not resume_path or not os.path.exists(resume_path):
+            resume_path = user.get("resume_path", "")
     else:
         sender_name = CONFIG.get("applicant", {}).get("name", "Abhishek Babariya")
         user_email = verified_sender
-        resume_path = CONFIG.get("resume_path", "")
+        resume_path = ""
         profile = {}
 
-    # Attachment
+    # Attachment - only attach if resume file actually exists
     attachment = None
     if resume_path and os.path.exists(resume_path):
         with open(resume_path, "rb") as f:
