@@ -5260,6 +5260,22 @@ if os.environ.get("RENDER") or os.environ.get("GUNICORN_INIT"):
                 run_scan_subprocess()
     threading.Thread(target=_render_periodic_scan, daemon=True).start()
 
+    # Keep-alive self-ping to prevent Render free tier from sleeping
+    def _keep_alive():
+        render_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+        while True:
+            time.sleep(600)  # Every 10 minutes
+            try:
+                if render_url:
+                    requests.get(f"{render_url}/api/jobs", timeout=10)
+                    log.info("[KeepAlive] Self-ping sent")
+                else:
+                    requests.get("http://localhost:10000/api/jobs", timeout=5)
+                    log.info("[KeepAlive] Local ping sent")
+            except Exception:
+                pass
+    threading.Thread(target=_keep_alive, daemon=True).start()
+
 
 if __name__ == "__main__":
     main()

@@ -12,3 +12,5 @@ services:
         value: "10000"
       - key: RENDER
         value: "true"
+      - key: RENDER_EXTERNAL_URL
+        value: "https://cyberjobs-4mki.onrender.com"
