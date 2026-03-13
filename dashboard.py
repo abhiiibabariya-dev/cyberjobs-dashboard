@@ -16,6 +16,8 @@ import threading
 import subprocess
 import logging
 import smtplib
+import csv
+import io
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
@@ -24,7 +26,7 @@ from urllib.parse import quote_plus, urlencode, urlparse, parse_qs, unquote
 import bcrypt
 import requests
 from bs4 import BeautifulSoup
-from flask import Flask, render_template, render_template_string, jsonify, request
+from flask import Flask, render_template, render_template_string, jsonify, request, Response
 from flask_cors import CORS
 from fake_useragent import UserAgent
 
@@ -64,6 +66,11 @@ JOBS_DB = os.path.join(SCRIPT_DIR, "dashboard_jobs.json")
 EMAILED_DB = os.path.join(SCRIPT_DIR, "dashboard_emailed.json")
 USERS_DB = os.path.join(SCRIPT_DIR, "users.json")
 APP_LOG_DB = os.path.join(SCRIPT_DIR, "application_log.json")
+BOOKMARKS_DB = os.path.join(SCRIPT_DIR, "bookmarks.json")
+APP_NOTES_DB = os.path.join(SCRIPT_DIR, "app_notes.json")
+REVIEWS_DB = os.path.join(SCRIPT_DIR, "company_reviews.json")
+SALARY_DB = os.path.join(SCRIPT_DIR, "salary_data.json")
+RECENT_SEARCHES_DB = os.path.join(SCRIPT_DIR, "recent_searches.json")
 
 with open(CONFIG_PATH, "r") as f:
     CONFIG = json.load(f)
@@ -287,6 +294,134 @@ def load_app_log():
 def save_app_log(data):
     with open(APP_LOG_DB, "w") as f:
         json.dump(data, f, indent=2, default=str)
+
+
+def load_bookmarks():
+    if os.path.exists(BOOKMARKS_DB):
+        with open(BOOKMARKS_DB, "r") as f:
+            return json.load(f)
+    return {}
+
+
+def save_bookmarks(data):
+    with open(BOOKMARKS_DB, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def load_app_notes():
+    if os.path.exists(APP_NOTES_DB):
+        with open(APP_NOTES_DB, "r") as f:
+            return json.load(f)
+    return {}
+
+
+def save_app_notes(data):
+    with open(APP_NOTES_DB, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def load_reviews():
+    if os.path.exists(REVIEWS_DB):
+        with open(REVIEWS_DB, "r") as f:
+            return json.load(f)
+    return []
+
+
+def save_reviews(data):
+    with open(REVIEWS_DB, "w") as f:
+        json.dump(data, f, indent=2, default=str)
+
+
+def load_salary_data():
+    if os.path.exists(SALARY_DB):
+        with open(SALARY_DB, "r") as f:
+            return json.load(f)
+    return []
+
+
+def save_salary_data(data):
+    with open(SALARY_DB, "w") as f:
+        json.dump(data, f, indent=2, default=str)
+
+
+def load_recent_searches():
+    if os.path.exists(RECENT_SEARCHES_DB):
+        with open(RECENT_SEARCHES_DB, "r") as f:
+            return json.load(f)
+    return {}
+
+
+def save_recent_searches(data):
+    with open(RECENT_SEARCHES_DB, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def categorize_job(title):
+    """Categorize a job based on title keywords."""
+    t = title.lower()
+    if "soc" in t:
+        return "SOC"
+    if re.search(r'pentest|ethical hack', t):
+        return "Pentesting"
+    if re.search(r'grc|compliance|audit', t):
+        return "GRC"
+    if "cloud" in t:
+        return "Cloud Security"
+    if "network" in t:
+        return "Network Security"
+    if re.search(r'incident|dfir|forensic', t):
+        return "DFIR"
+    if "devsecops" in t:
+        return "DevSecOps"
+    if re.search(r'iam|identity', t):
+        return "IAM"
+    return "Security"
+
+
+def compute_freshness(found_at_str):
+    """Compute freshness label based on when the job was found."""
+    if not found_at_str:
+        return None
+    try:
+        found_at = datetime.fromisoformat(found_at_str.replace("Z", "+00:00").split("+")[0])
+        delta = datetime.now() - found_at
+        hours = delta.total_seconds() / 3600
+        if hours < 4:
+            return "hot"
+        if hours < 24:
+            return "new"
+        if hours < 72:
+            return "recent"
+    except Exception:
+        pass
+    return None
+
+
+def compute_profile_score(user):
+    """Compute profile completeness score (0-100)."""
+    score = 0
+    if user.get("name"):
+        score += 10
+    if user.get("email"):
+        score += 10
+    if user.get("phone"):
+        score += 10
+    if user.get("resume_path") and os.path.exists(user.get("resume_path", "")):
+        score += 20
+    profile = user.get("profile", {})
+    if profile.get("skills"):
+        score += 15
+    if profile.get("bio"):
+        score += 10
+    if profile.get("linkedin"):
+        score += 10
+    if profile.get("location"):
+        score += 5
+    if profile.get("experience"):
+        score += 5
+    if user.get("verified"):
+        score += 5
+    return score
 
 
 def log_application(user_id, job, email_addr, brevo_response_ok):
@@ -2417,6 +2552,10 @@ def api_jobs():
             score, matched = compute_match_score(user_id, job)
             j["match_score"] = score
             j["match_keywords"] = matched[:8]  # Top 8 matched keywords
+
+        # Add category and freshness
+        j["category"] = categorize_job(j.get("title", ""))
+        j["freshness"] = compute_freshness(j.get("found_at", ""))
         jobs_with_info.append(j)
 
     return jsonify({
@@ -3293,6 +3432,436 @@ RESET_PAGE_HTML = """<!DOCTYPE html>
 </html>"""
 
 
+# ─── BOOKMARKS ──────────────────────────────────────────────────────
+
+@app.route("/api/bookmark", methods=["POST"])
+def api_toggle_bookmark():
+    """Toggle bookmark for a job."""
+    data = request.json or {}
+    user_id = data.get("user_id", "")
+    job_index = data.get("job_index")
+
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id required."})
+    if job_index is None or job_index < 0 or job_index >= len(ALL_JOBS):
+        return jsonify({"success": False, "message": "Invalid job_index."})
+
+    job = ALL_JOBS[job_index]
+    jid = job_hash(job["title"], job["company"], job["platform"])
+
+    bookmarks = load_bookmarks()
+    if user_id not in bookmarks:
+        bookmarks[user_id] = []
+
+    if jid in bookmarks[user_id]:
+        bookmarks[user_id].remove(jid)
+        action = "removed"
+    else:
+        bookmarks[user_id].append(jid)
+        action = "added"
+
+    save_bookmarks(bookmarks)
+    return jsonify({"success": True, "action": action, "job_hash": jid})
+
+
+@app.route("/api/bookmarks")
+def api_get_bookmarks():
+    """Get bookmarked job hashes for a user."""
+    user_id = request.args.get("user_id", "")
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id required."})
+
+    bookmarks = load_bookmarks()
+    return jsonify({"success": True, "bookmarks": bookmarks.get(user_id, [])})
+
+
+# ─── APPLICATION STATUS ────────────────────────────────────────────
+
+@app.route("/api/app_status", methods=["POST"])
+def api_update_app_status():
+    """Update application status for a job."""
+    data = request.json or {}
+    user_id = data.get("user_id", "")
+    job_hash_val = data.get("job_hash", "")
+    status = data.get("status", "")
+
+    if not user_id or not job_hash_val:
+        return jsonify({"success": False, "message": "user_id and job_hash required."})
+
+    valid_statuses = ["applied", "viewed", "interview", "offer", "rejected"]
+    if status not in valid_statuses:
+        return jsonify({"success": False, "message": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"})
+
+    app_log = load_app_log()
+    updated = False
+    for entry in app_log:
+        entry_hash = job_hash(entry.get("job_title", ""), entry.get("company", ""), entry.get("platform", ""))
+        if entry.get("user_id") == user_id and entry_hash == job_hash_val:
+            entry["status"] = status
+            entry["status_updated_at"] = datetime.now().isoformat()
+            updated = True
+            break
+
+    if not updated:
+        return jsonify({"success": False, "message": "Application entry not found."})
+
+    save_app_log(app_log)
+    return jsonify({"success": True, "message": f"Status updated to '{status}'."})
+
+
+# ─── APPLICATION NOTES ──────────────────────────────────────────────
+
+@app.route("/api/notes", methods=["POST"])
+def api_save_note():
+    """Save a note for a job."""
+    data = request.json or {}
+    user_id = data.get("user_id", "")
+    job_hash_val = data.get("job_hash", "")
+    note = data.get("note", "")
+
+    if not user_id or not job_hash_val:
+        return jsonify({"success": False, "message": "user_id and job_hash required."})
+
+    notes = load_app_notes()
+    if user_id not in notes:
+        notes[user_id] = {}
+
+    notes[user_id][job_hash_val] = {
+        "note": note,
+        "updated_at": datetime.now().isoformat(),
+    }
+    save_app_notes(notes)
+    return jsonify({"success": True, "message": "Note saved."})
+
+
+@app.route("/api/notes")
+def api_get_notes():
+    """Get all notes for a user."""
+    user_id = request.args.get("user_id", "")
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id required."})
+
+    notes = load_app_notes()
+    return jsonify({"success": True, "notes": notes.get(user_id, {})})
+
+
+# ─── RECOMMENDED JOBS ──────────────────────────────────────────────
+
+@app.route("/api/recommended")
+def api_recommended():
+    """Get top N recommended jobs sorted by match_score, excluding applied."""
+    user_id = request.args.get("user_id", "")
+    limit = int(request.args.get("limit", 10))
+
+    if not user_id or user_id not in USERS:
+        return jsonify({"success": False, "message": "User not found."})
+
+    applied_hashes = set(USERS[user_id].get("applied_jobs", []))
+    scored_jobs = []
+
+    for i, job in enumerate(ALL_JOBS):
+        jid = job_hash(job["title"], job["company"], job["platform"])
+        if jid in applied_hashes:
+            continue
+        score, matched = compute_match_score(user_id, job)
+        if score > 0:
+            j = dict(job)
+            j["match_score"] = score
+            j["match_keywords"] = matched[:8]
+            j["job_index"] = i
+            j["category"] = categorize_job(j.get("title", ""))
+            j["freshness"] = compute_freshness(j.get("found_at", ""))
+            scored_jobs.append(j)
+
+    scored_jobs.sort(key=lambda x: x["match_score"], reverse=True)
+    return jsonify({"success": True, "jobs": scored_jobs[:limit], "total": len(scored_jobs)})
+
+
+# ─── SIMILAR JOBS ───────────────────────────────────────────────────
+
+@app.route("/api/similar")
+def api_similar():
+    """Find jobs similar to a given job by title keyword overlap, company, or location."""
+    job_index = request.args.get("job_index")
+    limit = int(request.args.get("limit", 5))
+
+    if job_index is None:
+        return jsonify({"success": False, "message": "job_index required."})
+
+    job_index = int(job_index)
+    if job_index < 0 or job_index >= len(ALL_JOBS):
+        return jsonify({"success": False, "message": "Invalid job_index."})
+
+    target = ALL_JOBS[job_index]
+    target_words = set(re.findall(r'\w+', target.get("title", "").lower()))
+    target_company = target.get("company", "").lower().strip()
+    target_location = target.get("location", "").lower().strip()
+
+    scored = []
+    for i, job in enumerate(ALL_JOBS):
+        if i == job_index:
+            continue
+        job_words = set(re.findall(r'\w+', job.get("title", "").lower()))
+        overlap = len(target_words & job_words)
+        bonus = 0
+        if target_company and job.get("company", "").lower().strip() == target_company:
+            bonus += 2
+        if target_location and job.get("location", "").lower().strip() == target_location:
+            bonus += 1
+        score = overlap + bonus
+        if score > 0:
+            j = dict(job)
+            j["similarity_score"] = score
+            j["job_index"] = i
+            scored.append(j)
+
+    scored.sort(key=lambda x: x["similarity_score"], reverse=True)
+    return jsonify({"success": True, "jobs": scored[:limit]})
+
+
+# ─── RECENT SEARCHES ───────────────────────────────────────────────
+
+@app.route("/api/recent_searches", methods=["POST"])
+def api_save_recent_search():
+    """Save a recent search query."""
+    data = request.json or {}
+    user_id = data.get("user_id", "")
+    query = data.get("query", "").strip()
+
+    if not user_id or not query:
+        return jsonify({"success": False, "message": "user_id and query required."})
+
+    searches = load_recent_searches()
+    if user_id not in searches:
+        searches[user_id] = []
+
+    # Remove duplicate if exists, then prepend
+    searches[user_id] = [q for q in searches[user_id] if q != query]
+    searches[user_id].insert(0, query)
+    searches[user_id] = searches[user_id][:20]  # Keep last 20
+
+    save_recent_searches(searches)
+    return jsonify({"success": True, "message": "Search saved."})
+
+
+@app.route("/api/recent_searches")
+def api_get_recent_searches():
+    """Get recent searches for a user."""
+    user_id = request.args.get("user_id", "")
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id required."})
+
+    searches = load_recent_searches()
+    return jsonify({"success": True, "searches": searches.get(user_id, [])})
+
+
+# ─── COMPANY REVIEWS ───────────────────────────────────────────────
+
+@app.route("/api/reviews")
+def api_get_reviews():
+    """Get reviews for a company (case-insensitive partial match)."""
+    company = request.args.get("company", "").strip().lower()
+    if not company:
+        return jsonify({"success": False, "message": "company parameter required."})
+
+    reviews = load_reviews()
+    matched = [r for r in reviews if company in r.get("company", "").lower()]
+    return jsonify({"success": True, "reviews": matched, "total": len(matched)})
+
+
+@app.route("/api/reviews", methods=["POST"])
+def api_post_review():
+    """Submit a company review."""
+    data = request.json or {}
+    company = data.get("company", "").strip()
+    rating = data.get("rating")
+    title = data.get("title", "").strip()
+    pros = data.get("pros", "").strip()
+    cons = data.get("cons", "").strip()
+    user_id = data.get("user_id", "")
+
+    if not company or not rating or not user_id:
+        return jsonify({"success": False, "message": "company, rating, and user_id required."})
+
+    try:
+        rating = int(rating)
+        if rating < 1 or rating > 5:
+            raise ValueError
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "message": "Rating must be 1-5."})
+
+    reviews = load_reviews()
+    reviews.append({
+        "company": company,
+        "rating": rating,
+        "title": title,
+        "pros": pros,
+        "cons": cons,
+        "user_id": user_id,
+        "created_at": datetime.now().isoformat(),
+    })
+    save_reviews(reviews)
+    return jsonify({"success": True, "message": "Review submitted."})
+
+
+# ─── SALARY INSIGHTS ───────────────────────────────────────────────
+
+@app.route("/api/salary_insights")
+def api_salary_insights():
+    """Aggregate salary data from jobs + user submissions, grouped by role/location."""
+    salary_data = load_salary_data()
+
+    # Group by role
+    by_role = {}
+    for entry in salary_data:
+        role = entry.get("role", "Unknown")
+        if role not in by_role:
+            by_role[role] = {"count": 0, "min": None, "max": None, "entries": []}
+        by_role[role]["count"] += 1
+        mn = entry.get("min_salary", 0)
+        mx = entry.get("max_salary", 0)
+        if by_role[role]["min"] is None or mn < by_role[role]["min"]:
+            by_role[role]["min"] = mn
+        if by_role[role]["max"] is None or mx > by_role[role]["max"]:
+            by_role[role]["max"] = mx
+        by_role[role]["entries"].append(entry)
+
+    # Group by location
+    by_location = {}
+    for entry in salary_data:
+        loc = entry.get("location", "Unknown")
+        if loc not in by_location:
+            by_location[loc] = {"count": 0, "min": None, "max": None}
+        by_location[loc]["count"] += 1
+        mn = entry.get("min_salary", 0)
+        mx = entry.get("max_salary", 0)
+        if by_location[loc]["min"] is None or mn < by_location[loc]["min"]:
+            by_location[loc]["min"] = mn
+        if by_location[loc]["max"] is None or mx > by_location[loc]["max"]:
+            by_location[loc]["max"] = mx
+
+    return jsonify({
+        "success": True,
+        "by_role": by_role,
+        "by_location": by_location,
+        "total_reports": len(salary_data),
+    })
+
+
+@app.route("/api/salary_report", methods=["POST"])
+def api_salary_report():
+    """Submit a salary data point."""
+    data = request.json or {}
+    role = data.get("role", "").strip()
+    company = data.get("company", "").strip()
+    min_salary = data.get("min_salary")
+    max_salary = data.get("max_salary")
+    location = data.get("location", "").strip()
+    user_id = data.get("user_id", "")
+
+    if not role or not user_id:
+        return jsonify({"success": False, "message": "role and user_id required."})
+
+    try:
+        min_salary = int(min_salary) if min_salary is not None else 0
+        max_salary = int(max_salary) if max_salary is not None else 0
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "message": "Salary values must be numbers."})
+
+    salary_data = load_salary_data()
+    salary_data.append({
+        "role": role,
+        "company": company,
+        "min_salary": min_salary,
+        "max_salary": max_salary,
+        "location": location,
+        "user_id": user_id,
+        "submitted_at": datetime.now().isoformat(),
+    })
+    save_salary_data(salary_data)
+    return jsonify({"success": True, "message": "Salary report submitted."})
+
+
+# ─── EXPORT APPLICATIONS ───────────────────────────────────────────
+
+@app.route("/api/export_apps")
+def api_export_apps():
+    """Export user's application history as CSV."""
+    user_id = request.args.get("user_id", "")
+    fmt = request.args.get("format", "csv")
+
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id required."})
+
+    app_log = load_app_log()
+    user_apps = [e for e in app_log if e.get("user_id") == user_id]
+
+    if fmt == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Job Title", "Company", "Platform", "Job URL", "Sent To", "Sent At", "Status", "Brevo Accepted"])
+        for entry in user_apps:
+            writer.writerow([
+                entry.get("job_title", ""),
+                entry.get("company", ""),
+                entry.get("platform", ""),
+                entry.get("job_url", ""),
+                entry.get("sent_to", ""),
+                entry.get("sent_at", ""),
+                entry.get("status", "applied"),
+                entry.get("brevo_accepted", ""),
+            ])
+        csv_data = output.getvalue()
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=applications_{user_id}.csv"},
+        )
+
+    return jsonify({"success": False, "message": "Unsupported format. Use format=csv."})
+
+
+# ─── JOB ALERTS ─────────────────────────────────────────────────────
+
+@app.route("/api/alerts", methods=["POST"])
+def api_save_alerts():
+    """Save job alert preferences for a user."""
+    data = request.json or {}
+    user_id = data.get("user_id", "")
+
+    if not user_id or user_id not in USERS:
+        return jsonify({"success": False, "message": "User not found."})
+
+    keywords = data.get("keywords", [])
+    locations = data.get("locations", [])
+    frequency = data.get("frequency", "daily")
+    enabled = data.get("enabled", True)
+
+    if frequency not in ["daily", "weekly", "instant"]:
+        return jsonify({"success": False, "message": "Frequency must be daily, weekly, or instant."})
+
+    USERS[user_id]["alerts"] = {
+        "keywords": keywords,
+        "locations": locations,
+        "frequency": frequency,
+        "enabled": enabled,
+        "updated_at": datetime.now().isoformat(),
+    }
+    save_users()
+    return jsonify({"success": True, "message": "Alert preferences saved."})
+
+
+@app.route("/api/alerts")
+def api_get_alerts():
+    """Get job alert preferences for a user."""
+    user_id = request.args.get("user_id", "")
+    if not user_id or user_id not in USERS:
+        return jsonify({"success": False, "message": "User not found."})
+
+    alerts = USERS[user_id].get("alerts", {})
+    return jsonify({"success": True, "alerts": alerts})
+
+
 # ─── ADMIN PANEL ────────────────────────────────────────────────────
 ADMIN_SECRET = CONFIG.get("admin_secret", "cyberjobs2026")
 
@@ -3888,6 +4457,7 @@ def api_get_profile():
         "registered_at": user.get("registered_at", ""),
         "verified": user.get("verified", False),
         "mfa_enabled": user.get("mfa_enabled", False),
+        "profile_score": compute_profile_score(user),
     })
 
 
