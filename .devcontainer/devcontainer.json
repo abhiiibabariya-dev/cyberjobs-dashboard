@@ -1,8 +1,21 @@
 {
   "name": "CyberJobs Dashboard",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
+    }
+  },
   "postCreateCommand": "pip install -r requirements.txt",
+  "postStartCommand": "cd /workspaces/cyberjobs-dashboard && nohup python dashboard.py > /tmp/dashboard.log 2>&1 &",
   "forwardPorts": [5050],
+  "portsAttributes": {
+    "5050": {
+      "label": "CyberJobs Dashboard",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    }
+  },
   "customizations": {
     "vscode": {
       "extensions": [
