@@ -72,8 +72,24 @@ REVIEWS_DB = os.path.join(SCRIPT_DIR, "company_reviews.json")
 SALARY_DB = os.path.join(SCRIPT_DIR, "salary_data.json")
 RECENT_SEARCHES_DB = os.path.join(SCRIPT_DIR, "recent_searches.json")
 
-with open(CONFIG_PATH, "r") as f:
-    CONFIG = json.load(f)
+if os.path.exists(CONFIG_PATH):
+    with open(CONFIG_PATH, "r") as f:
+        CONFIG = json.load(f)
+else:
+    # Default config for cloud deployment (Render, etc.)
+    CONFIG = {
+        "search_keywords": ["SOC Analyst", "Cyber Security Analyst", "Security Analyst"],
+        "experience_range": {"min_years": 0, "max_years": 5},
+        "locations": ["Mumbai", "Pune", "Remote"],
+        "resume_path": "",
+        "check_interval_minutes": 30,
+        "applicant": {"name": "", "email": "", "phone": "", "linkedin_url": ""},
+        "brevo": {"api_key": os.environ.get("BREVO_API_KEY", "")},
+        "admin_secret": os.environ.get("ADMIN_SECRET", "cyberjobs2026"),
+        "auto_apply": False,
+        "email_hiring_teams": False,
+        "save_results": True,
+    }
 
 ua = UserAgent()
 app = Flask(__name__)
