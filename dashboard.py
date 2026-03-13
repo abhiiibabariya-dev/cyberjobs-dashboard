@@ -3122,12 +3122,15 @@ def api_login():
     if not email:
         return jsonify({"success": False, "message": "Email is required."})
 
-    # Find user by email
+    # Find user by email — prefer account with password_hash set
     found_uid = None
     for uid, u in USERS.items():
         if u.get("email", "").lower() == email.lower():
-            found_uid = uid
-            break
+            if u.get("password_hash"):
+                found_uid = uid
+                break
+            elif not found_uid:
+                found_uid = uid
 
     if not found_uid:
         return jsonify({"success": False, "message": "No account found with this email. Please register first."})
