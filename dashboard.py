@@ -5167,6 +5167,7 @@ def main():
 
     global PUBLIC_URL
     PUBLIC_URL = None
+    public_url = None
     if ngrok_token:
         try:
             from pyngrok import ngrok, conf
@@ -5193,6 +5194,7 @@ def main():
         except Exception as e:
             log.warning(f"ngrok failed: {e}")
             log.info("Dashboard will only be available locally.")
+            public_url = None
 
     port = 5050
     print("\n" + "=" * 60)
