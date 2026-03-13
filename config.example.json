@@ -1,0 +1,24 @@
+{
+    "search_keywords": ["SOC Analyst", "Cyber Security Analyst", "Security Analyst"],
+    "experience_range": {"min_years": 0, "max_years": 5},
+    "locations": ["Mumbai", "Pune", "Remote"],
+    "resume_path": "",
+    "check_interval_minutes": 30,
+    "applicant": {
+        "name": "Your Name",
+        "email": "your@email.com",
+        "phone": "+91XXXXXXXXXX",
+        "linkedin_url": ""
+    },
+    "brevo": {
+        "api_key": "YOUR_BREVO_API_KEY"
+    },
+    "ngrok_token": "",
+    "admin_secret": "change_this_password",
+    "notification": {
+        "desktop": true
+    },
+    "auto_apply": false,
+    "email_hiring_teams": false,
+    "save_results": true
+}
