@@ -890,14 +890,23 @@
     </div><!-- /appContent -->
 
 <script>
-// Override fetch to always include ngrok bypass header
+// Override fetch to always include ngrok bypass header and handle errors
 const _origFetch=window.fetch;
-window.fetch=function(url,opts={}){
-    opts.headers=opts.headers||{};
+window.fetch=function(url,opts){
+    if(!opts)opts={};
+    if(!opts.headers)opts.headers={};
     if(typeof opts.headers==='object'&&!(opts.headers instanceof Headers)){
         opts.headers['ngrok-skip-browser-warning']='1';
     }
-    return _origFetch.call(this,url,opts);
+    return _origFetch.call(this,url,opts).then(function(resp){
+        // Clone response and check if it's HTML (ngrok interstitial) instead of JSON
+        var ct=resp.headers.get('content-type')||'';
+        if(ct.includes('text/html')&&url.includes('/api/')){
+            // ngrok interstitial page — return error JSON
+            return new Response(JSON.stringify({success:false,message:'Session expired. Please refresh the page.'}),{status:200,headers:{'Content-Type':'application/json'}});
+        }
+        return resp;
+    });
 };
 let allJobs=[],currentFilter='all',currentCategory='all',currentSort='recent',countdownInterval,currentUserId='',pendingUserId='',otpTimerInterval=null,isLoggedIn=false;
 let bookmarkedJobs=new Set(),compareJobs=new Set(),jobNotes={},reviewStars=0;
