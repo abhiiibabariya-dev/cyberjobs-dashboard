@@ -214,6 +214,141 @@
         .ai-input-row input{flex:1;padding:10px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;outline:none;font-family:inherit}
         .ai-input-row button{padding:10px 18px;border-radius:20px;background:var(--blue);border:none;color:#fff;font-weight:600;font-size:13px;cursor:pointer}
 
+        /* ── Animations ── */
+        @keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeInLeft{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes fadeInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes scaleIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+        @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+        @keyframes glow{0%,100%{box-shadow:0 0 5px rgba(37,99,235,.3)}50%{box-shadow:0 0 20px rgba(37,99,235,.6)}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+        .job-card{animation:fadeInUp .4s ease both}
+        .job-card:nth-child(1){animation-delay:.05s}.job-card:nth-child(2){animation-delay:.1s}.job-card:nth-child(3){animation-delay:.15s}
+        .job-card:nth-child(4){animation-delay:.2s}.job-card:nth-child(5){animation-delay:.25s}
+        .job-card:hover{transform:translateY(-2px);box-shadow:var(--shadow2);transition:all .2s}
+
+        .stat-card{animation:scaleIn .4s ease both;transition:transform .2s}
+        .stat-card:hover{transform:scale(1.05)}
+        .stat-card:nth-child(1){animation-delay:.1s}.stat-card:nth-child(2){animation-delay:.2s}.stat-card:nth-child(3){animation-delay:.3s}.stat-card:nth-child(4){animation-delay:.4s}
+
+        .filter-pill{transition:all .2s;animation:fadeInLeft .3s ease both}
+        .filter-pill:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+
+        .search-section{background-size:200% 200%;animation:gradientShift 6s ease infinite;background:linear-gradient(135deg,#1e3a8a,#2563eb,#1e40af,#3b82f6);background-size:400% 400%}
+
+        .navbar{animation:fadeInUp .3s ease}
+
+        .rec-card{animation:fadeInRight .4s ease both;transition:transform .2s}
+        .rec-card:hover{transform:translateY(-3px) scale(1.02);box-shadow:var(--shadow2)}
+
+        .btn{transition:all .2s}
+        .btn:hover{transform:translateY(-1px)}
+        .btn-success{position:relative;overflow:hidden}
+        .btn-success::after{content:'';position:absolute;top:50%;left:50%;width:0;height:0;background:rgba(255,255,255,.2);border-radius:50%;transform:translate(-50%,-50%);transition:width .4s,height .4s}
+        .btn-success:hover::after{width:200px;height:200px}
+
+        .hot-tag{animation:glow 2s infinite}
+        .new-tag{animation:float 3s ease-in-out infinite}
+
+        .nav-avatar{transition:transform .2s}
+        .nav-avatar:hover{transform:scale(1.1)}
+
+        .modal-overlay{backdrop-filter:blur(4px);transition:all .3s}
+
+        .match-badge{animation:scaleIn .3s ease}
+        .email-chip{transition:all .15s}
+        .email-chip:hover{transform:scale(1.05);box-shadow:var(--shadow)}
+
+        .auth-landing .brand{animation:fadeInUp .6s ease}
+        .auth-landing-card{animation:fadeInUp .5s ease .2s both}
+        .auth-feature{animation:fadeInUp .4s ease both}
+        .auth-feature:nth-child(1){animation-delay:.3s}.auth-feature:nth-child(2){animation-delay:.4s}.auth-feature:nth-child(3){animation-delay:.5s}.auth-feature:nth-child(4){animation-delay:.6s}
+
+        .theme-btn{transition:transform .3s}
+        .theme-btn:hover{transform:rotate(180deg)}
+
+        .score-ring svg circle:last-child{transition:stroke-dashoffset 1s ease}
+
+        .bookmark-btn svg{transition:transform .2s}
+        .bookmark-btn:hover svg{transform:scale(1.2)}
+        .bookmark-btn.active svg{animation:scaleIn .3s ease}
+
+        .compare-bar{animation:fadeInUp .3s ease}
+
+        .ai-window{transition:all .3s}
+        .ai-msg{animation:fadeInUp .2s ease}
+
+        .bottom-nav .bnav-item{transition:all .15s}
+        .bottom-nav .bnav-item:hover{transform:translateY(-2px)}
+        .bottom-nav .bnav-item.active svg{animation:float 2s ease-in-out infinite}
+
+        /* Smooth scrollbar */
+        ::-webkit-scrollbar{width:6px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+        ::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+
+        /* ── Dark Theme ── */
+        [data-theme="dark"]{--bg:#0f172a;--white:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--border:#334155;--shadow:0 1px 3px rgba(0,0,0,.3);--shadow2:0 4px 12px rgba(0,0,0,.4);--bluebg:#172554;--greenbg:#052e16;--orangebg:#431407;--purplebg:#2e1065;--red:#f87171}
+        [data-theme="dark"] .search-input{background:#0f172a;color:#e2e8f0}
+        [data-theme="dark"] .search-input::placeholder{color:#64748b}
+        [data-theme="dark"] .mc-linkedin{background:#1e3a5f;color:#60a5fa}
+        [data-theme="dark"] .mc-naukri{background:#1e3a5f;color:#93c5fd}
+        [data-theme="dark"] .auth-landing-card{background:#1e293b}
+
+        /* ── Bookmark ── */
+        .bookmark-btn{background:none;border:none;cursor:pointer;padding:4px;color:var(--text3);transition:.15s}
+        .bookmark-btn:hover,.bookmark-btn.active{color:#f59e0b}
+        .bookmark-btn.active svg{fill:#f59e0b}
+
+        /* ── Freshness Badges ── */
+        .hot-tag{position:absolute;top:10px;right:10px;background:#fef2f2;color:#dc2626;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px}
+        .recent-tag{position:absolute;top:10px;right:10px;background:var(--bluebg);color:var(--blue);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px}
+
+        /* ── Share Dropdown ── */
+        .share-drop{display:none;position:absolute;right:0;top:100%;background:var(--white);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:var(--shadow2);z-index:50;min-width:140px}
+        .share-drop.show{display:block}
+        .share-drop a,.share-drop button{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:12px;text-decoration:none;color:var(--text2);border:none;background:none;width:100%;cursor:pointer;border-radius:6px;font-family:inherit}
+        .share-drop a:hover,.share-drop button:hover{background:var(--bluebg);color:var(--blue)}
+
+        /* ── Status Pipeline ── */
+        .status-bar{display:flex;gap:2px;margin:8px 0}
+        .status-step{flex:1;text-align:center;padding:4px 2px;font-size:9px;font-weight:700;border-radius:4px;background:#f0f0f0;color:var(--text3);cursor:pointer;transition:.15s}
+        .status-step.active{background:var(--blue);color:#fff}
+        .status-step.done{background:var(--greenbg);color:var(--green)}
+        .status-step.rejected{background:#fef2f2;color:var(--red)}
+
+        /* ── Profile Score Ring ── */
+        .score-ring{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;margin:0 auto 8px;position:relative}
+        .score-ring svg{position:absolute;transform:rotate(-90deg)}
+
+        /* ── Recommended Scroll ── */
+        .rec-scroll{display:flex;gap:10px;padding:12px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+        .rec-scroll::-webkit-scrollbar{display:none}
+        .rec-card{min-width:220px;max-width:240px;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:var(--shadow);flex-shrink:0;cursor:pointer}
+        .rec-card .rec-title{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .rec-card .rec-company{font-size:11px;color:var(--text2);margin-bottom:6px}
+        .rec-match{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d}
+
+        /* ── Category Pills ── */
+        .cat-row{display:flex;gap:6px;padding:6px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:var(--white);border-bottom:1px solid var(--border)}
+        .cat-row::-webkit-scrollbar{display:none}
+
+        /* ── Compare Bar ── */
+        .compare-bar{position:fixed;bottom:62px;left:0;right:0;background:var(--blue);color:#fff;padding:10px 16px;display:none;align-items:center;justify-content:space-between;z-index:99;font-size:13px;font-weight:600}
+        .compare-bar.show{display:flex}
+
+        /* ── Review Stars ── */
+        .stars{color:#fbbf24;font-size:14px;letter-spacing:2px}
+        .stars-input{display:flex;gap:4px}
+        .stars-input span{font-size:24px;cursor:pointer;color:#d1d5db}
+        .stars-input span.lit{color:#fbbf24}
+
+        /* ── Theme Toggle ── */
+        .theme-btn{width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text2);transition:.15s}
+
         /* ── Desktop adjustments ── */
         @media(min-width:768px){
             body{padding-bottom:0}
@@ -423,6 +558,13 @@
                     <h2 id="profileName" style="font-size:18px;margin-bottom:2px">User</h2>
                     <p id="profileEmail" style="font-size:12px;color:var(--text3)">email@example.com</p>
                     <span id="profileVerifiedBadge" style="display:none;font-size:10px;background:var(--greenbg);color:var(--green);padding:2px 8px;border-radius:10px;font-weight:600">Verified</span>
+                    <div id="profileScoreWrap" style="margin-top:8px">
+                        <div class="score-ring" id="profileScoreRing">
+                            <svg width="60" height="60"><circle cx="30" cy="30" r="26" fill="none" stroke="#e5e7eb" stroke-width="5"/><circle id="scoreCircle" cx="30" cy="30" r="26" fill="none" stroke="var(--blue)" stroke-width="5" stroke-dasharray="163.36" stroke-dashoffset="163.36" stroke-linecap="round"/></svg>
+                            <span id="scoreText" style="position:relative;z-index:1;color:var(--blue)">0%</span>
+                        </div>
+                        <div style="font-size:10px;color:var(--text3);font-weight:600">Profile Completion</div>
+                    </div>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
@@ -482,6 +624,85 @@
         </div>
     </div>
 
+    <!-- Reviews Modal -->
+    <div class="modal-overlay" id="reviewModal">
+        <div class="modal-box" style="max-height:90vh">
+            <div class="modal-handle"></div>
+            <button class="modal-close" onclick="closeModal('reviewModal')">&times;</button>
+            <h2 id="reviewCompany">Company Reviews</h2>
+            <div id="reviewAvg" style="text-align:center;margin-bottom:12px"></div>
+            <div id="reviewList" style="max-height:300px;overflow-y:auto;margin-bottom:14px"></div>
+            <h3 style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text2)">Write a Review</h3>
+            <input type="hidden" id="reviewCompanyName">
+            <div class="stars-input" id="starInput">
+                <span onclick="setStars(1)">&#9733;</span><span onclick="setStars(2)">&#9733;</span><span onclick="setStars(3)">&#9733;</span><span onclick="setStars(4)">&#9733;</span><span onclick="setStars(5)">&#9733;</span>
+            </div>
+            <label>Title</label>
+            <input type="text" id="reviewTitle" placeholder="One-line summary">
+            <label>Pros</label>
+            <input type="text" id="reviewPros" placeholder="What's good?">
+            <label>Cons</label>
+            <input type="text" id="reviewCons" placeholder="What could improve?">
+            <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="submitReview()">Submit Review</button>
+        </div>
+    </div>
+
+    <!-- Salary Modal -->
+    <div class="modal-overlay" id="salaryModal">
+        <div class="modal-box" style="max-height:90vh">
+            <div class="modal-handle"></div>
+            <button class="modal-close" onclick="closeModal('salaryModal')">&times;</button>
+            <h2>Salary Insights</h2>
+            <div id="salaryData" style="max-height:400px;overflow-y:auto"></div>
+            <h3 style="font-size:13px;font-weight:700;margin:14px 0 8px;color:var(--text2)">Contribute Salary Data</h3>
+            <label>Role</label><input type="text" id="salRole" placeholder="e.g. SOC Analyst">
+            <label>Company</label><input type="text" id="salCompany" placeholder="Company name">
+            <label>Min Salary (LPA)</label><input type="number" id="salMin" placeholder="e.g. 3">
+            <label>Max Salary (LPA)</label><input type="number" id="salMax" placeholder="e.g. 6">
+            <label>Location</label><input type="text" id="salLocation" placeholder="e.g. Mumbai">
+            <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="submitSalary()">Submit</button>
+        </div>
+    </div>
+
+    <!-- Compare Modal -->
+    <div class="modal-overlay" id="compareModal">
+        <div class="modal-box" style="max-width:600px;max-height:90vh">
+            <div class="modal-handle"></div>
+            <button class="modal-close" onclick="closeModal('compareModal')">&times;</button>
+            <h2>Compare Jobs</h2>
+            <div id="compareBody" style="overflow-x:auto"></div>
+        </div>
+    </div>
+
+    <!-- Alerts Modal -->
+    <div class="modal-overlay" id="alertsModal">
+        <div class="modal-box">
+            <div class="modal-handle"></div>
+            <button class="modal-close" onclick="closeModal('alertsModal')">&times;</button>
+            <h2>Job Alerts</h2>
+            <label>Keywords (comma separated)</label>
+            <input type="text" id="alertKeywords" placeholder="SOC Analyst, Pentester, Cloud Security">
+            <label>Locations (comma separated)</label>
+            <input type="text" id="alertLocations" placeholder="Mumbai, Pune, Remote">
+            <label>Frequency</label>
+            <div style="display:flex;gap:8px;margin:8px 0">
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="radio" name="alertFreq" value="instant"> Instant</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="radio" name="alertFreq" value="daily" checked> Daily</label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="radio" name="alertFreq" value="weekly"> Weekly</label>
+            </div>
+            <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="saveAlerts()">Save Alerts</button>
+        </div>
+    </div>
+
+    <!-- Compare floating bar -->
+    <div class="compare-bar" id="compareBar">
+        <span id="compareCount">0 jobs selected</span>
+        <div>
+            <button class="btn btn-sm" style="background:#fff;color:var(--blue)" onclick="showCompare()">Compare</button>
+            <button class="btn btn-sm" style="background:transparent;border:1px solid #fff;color:#fff" onclick="clearCompare()">Clear</button>
+        </div>
+    </div>
+
     <!-- Main App Content (hidden until login) -->
     <div id="appContent" style="display:none">
 
@@ -492,6 +713,9 @@
             <h1><span>Cyber</span>Jobs</h1>
         </div>
         <div class="nav-right">
+            <button class="theme-btn" onclick="toggleTheme()" title="Toggle dark/light mode" id="themeBtn">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path id="themeIcon" d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+            </button>
             <span class="live-badge"><span class="live-dot"></span>Live</span>
             <div class="nav-avatar" id="userAvatar" onclick="openProfileOrAuth()">A</div>
         </div>
@@ -502,8 +726,14 @@
         <div class="search-title">Find Your Next Cyber Role</div>
         <div class="search-sub">Scanning 10 portals: LinkedIn, Indeed, Naukri, Glassdoor, Google Jobs, Foundit, SimplyHired, TimesJobs, Shine & Feed</div>
         <div class="search-row">
-            <input type="text" class="search-input" id="searchBox" placeholder="Search jobs, companies..." oninput="applyFilters()">
+            <input type="text" class="search-input" id="searchBox" placeholder="Search jobs, companies..." oninput="applyFilters()" onfocus="showRecentSearches()" onblur="setTimeout(()=>document.getElementById('recentSearchDrop').style.display='none',200)">
             <button class="scan-btn" onclick="fetchNewJobs()" id="refreshBtn">Scan</button>
+        </div>
+        <div id="recentSearchDrop" style="display:none;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px"></div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn-xs" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:16px;cursor:pointer;font-family:inherit" onclick="openModal('salaryModal');loadSalaryInsights()">&#128176; Salary</button>
+            <button class="btn-xs" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:16px;cursor:pointer;font-family:inherit" onclick="openModal('alertsModal');loadAlerts()">&#128276; Alerts</button>
+            <button class="btn-xs" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:16px;cursor:pointer;font-family:inherit" onclick="exportApps('csv')">&#128196; Export CSV</button>
         </div>
     </div>
 
@@ -536,6 +766,27 @@
         <div class="filter-pill" onclick="filterJobs('Shine',this)">Shine <span class="pill-count" id="fc-shine">0</span></div>
         <div class="filter-pill" onclick="filterJobs('Feed',this)">Feed <span class="pill-count" id="fc-feed">0</span></div>
         <div class="filter-pill" onclick="filterJobs('Profile',this)">Profile <span class="pill-count" id="fc-profile">0</span></div>
+        <div class="filter-pill" onclick="filterJobs('saved',this)" style="border-color:#f59e0b;color:#f59e0b">&#9733; Saved <span class="pill-count" id="fc-saved">0</span></div>
+    </div>
+    <!-- Category Pills -->
+    <div class="cat-row" id="catRow">
+        <div class="filter-pill active" onclick="filterCategory('all',this)">All Categories</div>
+        <div class="filter-pill" onclick="filterCategory('SOC',this)">SOC</div>
+        <div class="filter-pill" onclick="filterCategory('Pentesting',this)">Pentesting</div>
+        <div class="filter-pill" onclick="filterCategory('GRC',this)">GRC</div>
+        <div class="filter-pill" onclick="filterCategory('Cloud Security',this)">Cloud</div>
+        <div class="filter-pill" onclick="filterCategory('Network Security',this)">Network</div>
+        <div class="filter-pill" onclick="filterCategory('DFIR',this)">DFIR</div>
+        <div class="filter-pill" onclick="filterCategory('DevSecOps',this)">DevSecOps</div>
+        <div class="filter-pill" onclick="filterCategory('IAM',this)">IAM</div>
+    </div>
+    <!-- Recommended Jobs Section -->
+    <div id="recSection" style="display:none;background:var(--white);border-bottom:1px solid var(--border)">
+        <div style="padding:12px 16px 0;display:flex;justify-content:space-between;align-items:center">
+            <h3 style="font-size:14px;font-weight:700">Recommended For You</h3>
+            <button class="btn-xs btn-outline" onclick="document.getElementById('recSection').style.display='none'">Hide</button>
+        </div>
+        <div class="rec-scroll" id="recScroll"></div>
     </div>
 
     <!-- HR Finder Section -->
@@ -648,7 +899,8 @@ window.fetch=function(url,opts={}){
     }
     return _origFetch.call(this,url,opts);
 };
-let allJobs=[],currentFilter='all',currentSort='recent',countdownInterval,currentUserId='',pendingUserId='',otpTimerInterval=null,isLoggedIn=false;
+let allJobs=[],currentFilter='all',currentCategory='all',currentSort='recent',countdownInterval,currentUserId='',pendingUserId='',otpTimerInterval=null,isLoggedIn=false;
+let bookmarkedJobs=new Set(),compareJobs=new Set(),jobNotes={},reviewStars=0;
 function esc(t){if(!t)return'';const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 function timeAgo(d){const s=Math.floor((new Date()-new Date(d))/1000);if(s<60)return'Just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
 function mcClass(p){p=p.toLowerCase();return p.includes('feed')?'mc-feed':p.includes('profile')?'mc-profile':p.includes('google')?'mc-google':p.includes('foundit')?'mc-foundit':p.includes('simplyhired')?'mc-simplyhired':p.includes('timesjobs')?'mc-timesjobs':p.includes('shine')?'mc-shine':p.includes('linkedin')?'mc-linkedin':p.includes('naukri')?'mc-naukri':p.includes('indeed')?'mc-indeed':p.includes('glassdoor')?'mc-glassdoor':'mc-naukri'}
@@ -930,6 +1182,12 @@ async function loadAndShowProfile(){
         document.getElementById('profLinkedin').value=p.linkedin||'';
         document.getElementById('profSkills').value=p.skills||'';
         document.getElementById('profBio').value=p.bio||'';
+        // Profile score
+        const score=d.profile_score||0;
+        document.getElementById('scoreText').textContent=score+'%';
+        const offset=163.36-(163.36*score/100);
+        document.getElementById('scoreCircle').style.strokeDashoffset=offset;
+        document.getElementById('scoreCircle').style.stroke=score>=80?'var(--green)':score>=50?'var(--blue)':'var(--orange)';
         // 2FA toggle state
         const mfaOn=d.mfa_enabled||false;
         document.getElementById('mfaToggle').checked=mfaOn;
@@ -1174,18 +1432,37 @@ function renderJobs(jobs){
         const applied=j.applied_by&&j.applied_by.includes(currentUserId);
         const ri=allJobs.indexOf(j);
         const ms=j.match_score||0;
+        const jh=j.job_hash||'';
+        const bk=bookmarkedJobs.has(jh);
+        const cmp=compareJobs.has(ri);
         let matchHtml='';
         if(ms>=70)matchHtml=`<span class="match-badge match-strong">${ms}% Match</span>`;
         else if(ms>=40)matchHtml=`<span class="match-badge match-good">${ms}% Match</span>`;
         else if(ms>=20)matchHtml=`<span class="match-badge match-partial">${ms}% Match</span>`;
         let matchPills='';
         if(j.match_keywords&&j.match_keywords.length&&ms>=20){matchPills=`<div class="match-pills">${j.match_keywords.slice(0,6).map(k=>`<span class="match-pill">${esc(k)}</span>`).join('')}</div>`}
-        return`<div class="job-card ${j.is_new?'is-new':''}">
-            ${j.is_new?'<span class="new-tag">New</span>':''}
-            <div class="job-title" onclick="showJD(${ri})">${esc(j.title)}</div>
-            <div class="job-company">${esc(j.company)}</div>
+        // Freshness badge
+        let freshTag='';
+        if(j.freshness==='hot')freshTag='<span class="hot-tag">&#128293; Hot</span>';
+        else if(j.freshness==='new'||j.is_new)freshTag='<span class="new-tag">New</span>';
+        else if(j.freshness==='recent')freshTag='<span class="recent-tag">Recent</span>';
+        // Category badge
+        let catBadge=j.category?`<span class="meta-chip" style="background:var(--purplebg);color:var(--purple);font-size:10px">${esc(j.category)}</span>`:'';
+        return`<div class="job-card ${j.freshness==='hot'?'is-new':j.is_new?'is-new':''}">
+            ${freshTag}
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div style="flex:1;min-width:0">
+                    <div class="job-title" onclick="showJD(${ri})">${esc(j.title)}</div>
+                    <div class="job-company">${esc(j.company)} <span style="cursor:pointer;font-size:11px;color:var(--blue)" onclick="openReviews('${esc(j.company).replace(/'/g,"\\'")}')">&#9733; Reviews</span></div>
+                </div>
+                <div style="display:flex;gap:2px;flex-shrink:0;margin-left:6px;margin-top:2px">
+                    <button class="bookmark-btn ${bk?'active':''}" onclick="toggleBookmark(${ri})" title="Save"><svg width="18" height="18" viewBox="0 0 24 24" fill="${bk?'#f59e0b':'none'}" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg></button>
+                    <div style="position:relative"><button class="btn-xs btn-outline" onclick="toggleShare(event,${ri})" style="padding:4px 6px;font-size:10px">Share</button><div class="share-drop" id="share-${ri}"><a href="https://wa.me/?text=${encodeURIComponent(j.title+' at '+j.company+' '+j.url)}" target="_blank">WhatsApp</a><a href="https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(j.url)}" target="_blank">LinkedIn</a><button onclick="navigator.clipboard.writeText('${esc(j.url)}');showToast('Link copied!','success')">Copy Link</button></div></div>
+                </div>
+            </div>
             <div class="job-meta-row">
                 <span class="meta-chip ${mcClass(j.platform)}">${esc(j.platform)}</span>
+                ${catBadge}
                 ${matchHtml}
                 <span class="meta-loc"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>${esc(j.location||'India')}</span>
                 ${j.experience?`<span class="meta-exp">${esc(j.experience)}</span>`:''}
@@ -1197,6 +1474,7 @@ function renderJobs(jobs){
                 <button class="btn ${applied?'btn-outline':'btn-success'} btn-sm" id="apply-${ri}" onclick="oneClickApply(${ri})" ${applied?'disabled':''}>${applied?'Applied':'Apply'}</button>
                 ${j.url?`<a href="${esc(j.url)}" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none">View</a>`:''}
                 <button class="btn btn-outline btn-sm" onclick="showJD(${ri})">Details</button>
+                <label style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text3);cursor:pointer"><input type="checkbox" ${cmp?'checked':''} onchange="toggleCompare(${ri})"> Compare</label>
                 ${j.poster?`<span class="job-poster">${esc(j.poster)}</span>`:''}
                 <span class="job-time">${timeAgo(j.found_at)}</span>
             </div>
@@ -1228,7 +1506,20 @@ async function showJD(idx){
         h+=`<div class="jd-emails-sec"><h5>HR Emails (tap to mail):</h5><div class="hr-email-pills">`;
         if(d.mailto_links&&d.mailto_links.length){d.mailto_links.forEach(m=>{const lb=m.from_post?'post':m.guessed?'guessed':'found';h+=`<a href="${m.gmail_link}" target="_blank" class="hr-pill">${esc(m.email)} <span class="pill-tag">${lb}</span></a>`})}
         else h+=`<span style="color:var(--text3);font-size:12px">No emails found</span>`;
-        h+=`</div></div>`;p.innerHTML=h;
+        h+=`</div></div>`;
+        // Notes section
+        const jh=allJobs[idx]?.job_hash||'';
+        const existingNote=jobNotes[jh]||'';
+        h+=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"><h5 style="font-size:11px;font-weight:700;margin-bottom:4px">Personal Notes</h5><textarea id="note-${idx}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;resize:vertical;min-height:40px" placeholder="Add private notes about this job...">${esc(existingNote)}</textarea><button class="btn btn-xs btn-primary" style="margin-top:4px" onclick="saveNote('${jh}',document.getElementById('note-${idx}').value)">Save Note</button></div>`;
+        // Similar jobs
+        h+=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" id="similar-${idx}"><h5 style="font-size:11px;font-weight:700;margin-bottom:4px">Similar Jobs</h5><span style="font-size:11px;color:var(--text3)">Loading...</span></div>`;
+        p.innerHTML=h;
+        // Fetch similar jobs async
+        fetch(`/api/similar?job_index=${idx}&limit=4`).then(r=>r.json()).then(sd=>{
+            const sc=document.getElementById(`similar-${idx}`);
+            if(sd.jobs&&sd.jobs.length){sc.innerHTML=`<h5 style="font-size:11px;font-weight:700;margin-bottom:6px">Similar Jobs</h5>`+sd.jobs.map(sj=>`<div style="padding:6px 0;border-bottom:1px solid #f0f0f0"><a href="${esc(sj.url)}" target="_blank" style="font-size:12px;color:var(--blue);text-decoration:none;font-weight:600">${esc(sj.title)}</a><div style="font-size:11px;color:var(--text3)">${esc(sj.company)} · ${esc(sj.platform)}</div></div>`).join('')}
+            else{sc.innerHTML=''}
+        }).catch(()=>{});
     }catch(e){p.innerHTML='<div style="color:var(--red);padding:8px;font-size:12px">Failed to load</div>'}}
 
 async function oneClickApply(idx){if(!isLoggedIn||!currentUserId){showToast('Please login first to apply','error');return}
@@ -1245,7 +1536,7 @@ async function oneClickApply(idx){if(!isLoggedIn||!currentUserId){showToast('Ple
         }else{btn.textContent='Retry';btn.disabled=false;showToast(d.message||'Failed','error')}
     }catch(e){btn.textContent='Retry';btn.disabled=false;showToast('Network error','error')}}
 
-async function loadJobs(){try{const url=currentUserId?`/api/jobs?user_id=${currentUserId}`:'/api/jobs';const r=await fetch(url),d=await r.json();allJobs=d.jobs||[];updateStats(d);updateFilterCounts();applyFilters()}catch(e){}}
+async function loadJobs(){try{const url=currentUserId?`/api/jobs?user_id=${currentUserId}`:'/api/jobs';const r=await fetch(url),d=await r.json();allJobs=d.jobs||[];updateStats(d);updateFilterCounts();applyFilters();loadBookmarks();loadNotes();loadRecommended()}catch(e){}}
 async function loadUsers(){try{const r=await fetch('/api/users'),d=await r.json();const sel=document.getElementById('userSelect');sel.innerHTML='';
     (d.users||[]).forEach(u=>{const o=document.createElement('option');o.value=u.user_id;o.textContent=u.name;sel.appendChild(o)});
     if(currentUserId)sel.value=currentUserId;
@@ -1271,9 +1562,16 @@ async function fetchNewJobs(){
 
 function updateStats(d){document.getElementById('totalJobs').textContent=d.total||allJobs.length;document.getElementById('newJobs').textContent=d.new_today||0;document.getElementById('emailsSent').textContent=d.emails_sent||0}
 function changeSort(v){currentSort=v;applyFilters()}
-function filterJobs(p,b){currentFilter=p;document.querySelectorAll('.filter-pill').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');applyFilters()}
+function filterJobs(p,b){currentFilter=p;document.querySelectorAll('#filterRow .filter-pill').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');applyFilters();
+    // Save search if user typed something
+    const q=document.getElementById('searchBox').value.trim();
+    if(q&&currentUserId)fetch('/api/recent_searches',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:currentUserId,query:q})}).catch(()=>{});
+}
+function filterCategory(cat,b){currentCategory=cat;document.querySelectorAll('#catRow .filter-pill').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');applyFilters()}
 function applyFilters(){let f=[...allJobs];const s=document.getElementById('searchBox').value.toLowerCase();
-    if(currentFilter!=='all')f=f.filter(j=>j.platform.toLowerCase().includes(currentFilter.toLowerCase()));
+    if(currentFilter==='saved')f=f.filter(j=>bookmarkedJobs.has(j.job_hash||''));
+    else if(currentFilter!=='all')f=f.filter(j=>j.platform.toLowerCase().includes(currentFilter.toLowerCase()));
+    if(currentCategory!=='all')f=f.filter(j=>(j.category||'').toLowerCase()===currentCategory.toLowerCase());
     if(s)f=f.filter(j=>(j.title||'').toLowerCase().includes(s)||(j.company||'').toLowerCase().includes(s)||(j.location||'').toLowerCase().includes(s));
     if(currentSort==='match')f.sort((a,b)=>(b.match_score||0)-(a.match_score||0));
     renderJobs(f)}
@@ -1340,7 +1638,178 @@ async function sendAI(){const input=document.getElementById('aiInput'),msg=input
         msgs.innerHTML+=`<div class="ai-msg bot">${a}</div>`;msgs.scrollTop=msgs.scrollHeight;
     }catch(e){document.getElementById('aiLoading').remove();msgs.innerHTML+=`<div class="ai-msg bot" style="color:var(--red)">Error</div>`}}
 
-window.addEventListener('load',()=>{restoreSession()});
+// ─── THEME ──────────────────────────────────────────
+function toggleTheme(){
+    const cur=document.documentElement.dataset.theme;
+    const nxt=cur==='dark'?'light':'dark';
+    document.documentElement.dataset.theme=nxt;
+    localStorage.setItem('cj_theme',nxt);
+    document.getElementById('themeIcon').setAttribute('d',nxt==='dark'?'M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z':'M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z');
+}
+(function(){const t=localStorage.getItem('cj_theme');if(t)document.documentElement.dataset.theme=t})();
+
+// ─── BOOKMARKS ──────────────────────────────────────
+async function loadBookmarks(){
+    if(!currentUserId)return;
+    try{const r=await fetch(`/api/bookmarks?user_id=${currentUserId}`);const d=await r.json();
+        bookmarkedJobs=new Set(d.bookmarks||[]);
+        const el=document.getElementById('fc-saved');if(el)el.textContent=bookmarkedJobs.size;
+    }catch(e){}
+}
+async function toggleBookmark(idx){
+    if(!currentUserId){showToast('Login first','error');return}
+    try{const r=await fetch('/api/bookmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:currentUserId,job_index:idx})});
+        const d=await r.json();
+        if(d.bookmarked)bookmarkedJobs.add(d.job_hash);else bookmarkedJobs.delete(d.job_hash);
+        const el=document.getElementById('fc-saved');if(el)el.textContent=bookmarkedJobs.size;
+        applyFilters();showToast(d.message,'success');
+    }catch(e){showToast('Failed','error')}
+}
+
+// ─── NOTES ──────────────────────────────────────────
+async function loadNotes(){
+    if(!currentUserId)return;
+    try{const r=await fetch(`/api/notes?user_id=${currentUserId}`);const d=await r.json();jobNotes=d.notes||{}}catch(e){}
+}
+async function saveNote(jh,text){
+    try{const r=await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:currentUserId,job_hash:jh,note:text})});
+        const d=await r.json();jobNotes[jh]=text;showToast(d.message||'Note saved','success');
+    }catch(e){showToast('Failed','error')}
+}
+
+// ─── SHARE ──────────────────────────────────────────
+function toggleShare(e,idx){e.stopPropagation();const d=document.getElementById(`share-${idx}`);
+    document.querySelectorAll('.share-drop.show').forEach(x=>x.classList.remove('show'));
+    d.classList.toggle('show');
+    setTimeout(()=>document.addEventListener('click',()=>d.classList.remove('show'),{once:true}),10);
+}
+
+// ─── COMPARE ────────────────────────────────────────
+function toggleCompare(idx){
+    if(compareJobs.has(idx))compareJobs.delete(idx);else{if(compareJobs.size>=3){showToast('Max 3 jobs','error');return}compareJobs.add(idx)}
+    const bar=document.getElementById('compareBar');
+    if(compareJobs.size>0){bar.classList.add('show');document.getElementById('compareCount').textContent=compareJobs.size+' jobs selected'}
+    else bar.classList.remove('show');
+}
+function clearCompare(){compareJobs.clear();document.getElementById('compareBar').classList.remove('show');applyFilters()}
+function showCompare(){
+    if(compareJobs.size<2){showToast('Select at least 2 jobs','error');return}
+    const jobs=[...compareJobs].map(i=>allJobs[i]);
+    let h='<table style="width:100%;font-size:12px;border-collapse:collapse"><tr><th style="padding:6px;border-bottom:2px solid var(--border);text-align:left;color:var(--text3)">Field</th>';
+    jobs.forEach(j=>h+=`<th style="padding:6px;border-bottom:2px solid var(--border);color:var(--blue);font-weight:600">${esc(j.title).substring(0,30)}</th>`);
+    h+='</tr>';
+    const fields=[['Company','company'],['Platform','platform'],['Location','location'],['Salary','salary'],['Experience','experience'],['Match','match_score'],['Category','category']];
+    fields.forEach(([lbl,key])=>{h+=`<tr><td style="padding:6px;border-bottom:1px solid #f0f0f0;font-weight:600;color:var(--text2)">${lbl}</td>`;
+        jobs.forEach(j=>h+=`<td style="padding:6px;border-bottom:1px solid #f0f0f0">${esc(String(j[key]||'-'))}</td>`);h+='</tr>'});
+    h+='</table>';
+    document.getElementById('compareBody').innerHTML=h;
+    openModal('compareModal');
+}
+
+// ─── RECOMMENDED ────────────────────────────────────
+async function loadRecommended(){
+    if(!currentUserId)return;
+    try{const r=await fetch(`/api/recommended?user_id=${currentUserId}&limit=8`);const d=await r.json();
+        const jobs=d.jobs||[];if(!jobs.length){document.getElementById('recSection').style.display='none';return}
+        document.getElementById('recSection').style.display='block';
+        document.getElementById('recScroll').innerHTML=jobs.map(j=>`<div class="rec-card" onclick="window.open('${esc(j.url)}','_blank')">
+            <div class="rec-title">${esc(j.title)}</div>
+            <div class="rec-company">${esc(j.company)} · ${esc(j.platform)}</div>
+            <span class="rec-match">${j.match_score||0}% Match</span>
+        </div>`).join('');
+    }catch(e){}
+}
+
+// ─── RECENT SEARCHES ────────────────────────────────
+async function showRecentSearches(){
+    if(!currentUserId)return;const el=document.getElementById('recentSearchDrop');
+    try{const r=await fetch(`/api/recent_searches?user_id=${currentUserId}`);const d=await r.json();
+        const searches=d.searches||[];if(!searches.length){el.style.display='none';return}
+        el.style.display='flex';
+        el.innerHTML=searches.slice(0,10).map(s=>`<span style="padding:4px 10px;background:rgba(255,255,255,.2);color:#fff;border-radius:12px;font-size:11px;cursor:pointer;font-weight:500" onclick="document.getElementById('searchBox').value='${esc(s.query)}';applyFilters();document.getElementById('recentSearchDrop').style.display='none'">${esc(s.query)}</span>`).join('');
+    }catch(e){}
+}
+
+// ─── REVIEWS ────────────────────────────────────────
+function setStars(n){reviewStars=n;document.querySelectorAll('#starInput span').forEach((s,i)=>s.classList.toggle('lit',i<n))}
+async function openReviews(company){
+    document.getElementById('reviewCompanyName').value=company;
+    document.getElementById('reviewCompany').textContent=company+' Reviews';
+    reviewStars=0;setStars(0);
+    try{const r=await fetch(`/api/reviews?company=${encodeURIComponent(company)}`);const d=await r.json();
+        const revs=d.reviews||[];
+        if(revs.length){const avg=(revs.reduce((a,r)=>a+r.rating,0)/revs.length).toFixed(1);
+            document.getElementById('reviewAvg').innerHTML=`<span class="stars">${'&#9733;'.repeat(Math.round(avg))}</span> <strong>${avg}</strong>/5 (${revs.length} reviews)`;
+            document.getElementById('reviewList').innerHTML=revs.map(r=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between"><strong style="font-size:13px">${esc(r.title)}</strong><span class="stars" style="font-size:12px">${'&#9733;'.repeat(r.rating)}</span></div><div style="font-size:12px;color:var(--green);margin:4px 0">Pros: ${esc(r.pros)}</div><div style="font-size:12px;color:var(--red)">Cons: ${esc(r.cons)}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${r.created_at?new Date(r.created_at).toLocaleDateString():''}</div></div>`).join('');
+        }else{document.getElementById('reviewAvg').innerHTML='<span style="color:var(--text3);font-size:13px">No reviews yet. Be the first!</span>';document.getElementById('reviewList').innerHTML=''}
+    }catch(e){}
+    openModal('reviewModal');
+}
+async function submitReview(){
+    const company=document.getElementById('reviewCompanyName').value;
+    if(!reviewStars){showToast('Select a rating','error');return}
+    const body={company,rating:reviewStars,title:document.getElementById('reviewTitle').value,pros:document.getElementById('reviewPros').value,cons:document.getElementById('reviewCons').value,user_id:currentUserId};
+    try{const r=await fetch('/api/reviews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d=await r.json();showToast(d.message||'Submitted','success');openReviews(company);
+        document.getElementById('reviewTitle').value='';document.getElementById('reviewPros').value='';document.getElementById('reviewCons').value='';
+    }catch(e){showToast('Failed','error')}
+}
+
+// ─── SALARY ─────────────────────────────────────────
+async function loadSalaryInsights(){
+    try{const r=await fetch('/api/salary_insights');const d=await r.json();
+        const byRole=d.by_role||{};const byLoc=d.by_location||{};
+        let h='<h3 style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px">By Role</h3>';
+        Object.entries(byRole).forEach(([role,data])=>{h+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600">${esc(role)}</span><span style="color:var(--green)">₹${data.avg_min||0}L - ₹${data.avg_max||0}L <span style="color:var(--text3)">(${data.count} reports)</span></span></div>`});
+        if(!Object.keys(byRole).length)h+='<p style="color:var(--text3);font-size:12px">No salary data yet. Be the first to contribute!</p>';
+        h+='<h3 style="font-size:13px;font-weight:700;color:var(--text2);margin:14px 0 8px">By Location</h3>';
+        Object.entries(byLoc).forEach(([loc,data])=>{h+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600">${esc(loc)}</span><span style="color:var(--green)">₹${data.avg_min||0}L - ₹${data.avg_max||0}L</span></div>`});
+        document.getElementById('salaryData').innerHTML=h;
+    }catch(e){}
+}
+async function submitSalary(){
+    const body={role:document.getElementById('salRole').value,company:document.getElementById('salCompany').value,min_salary:parseFloat(document.getElementById('salMin').value),max_salary:parseFloat(document.getElementById('salMax').value),location:document.getElementById('salLocation').value,user_id:currentUserId};
+    try{const r=await fetch('/api/salary_report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d=await r.json();showToast(d.message,'success');loadSalaryInsights();
+    }catch(e){showToast('Failed','error')}
+}
+
+// ─── ALERTS ─────────────────────────────────────────
+async function loadAlerts(){
+    if(!currentUserId)return;
+    try{const r=await fetch(`/api/alerts?user_id=${currentUserId}`);const d=await r.json();
+        if(d.alerts){document.getElementById('alertKeywords').value=(d.alerts.keywords||[]).join(', ');
+            document.getElementById('alertLocations').value=(d.alerts.locations||[]).join(', ');
+            const freq=d.alerts.frequency||'daily';
+            document.querySelectorAll('input[name="alertFreq"]').forEach(r=>{r.checked=r.value===freq})}
+    }catch(e){}
+}
+async function saveAlerts(){
+    const kw=document.getElementById('alertKeywords').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const locs=document.getElementById('alertLocations').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const freq=document.querySelector('input[name="alertFreq"]:checked')?.value||'daily';
+    try{const r=await fetch('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:currentUserId,keywords:kw,locations:locs,frequency:freq,enabled:true})});
+        const d=await r.json();showToast(d.message||'Alerts saved','success');closeModal('alertsModal');
+    }catch(e){showToast('Failed','error')}
+}
+
+// ─── EXPORT ─────────────────────────────────────────
+function exportApps(fmt){
+    if(!currentUserId){showToast('Login first','error');return}
+    window.open(`/api/export_apps?user_id=${currentUserId}&format=${fmt}`,'_blank');
+}
+
+// ─── APPLICATION STATUS ─────────────────────────────
+async function updateAppStatus(jh,status){
+    try{const r=await fetch('/api/app_status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:currentUserId,job_hash:jh,status})});
+        const d=await r.json();showToast(d.message||'Status updated','success');
+    }catch(e){showToast('Failed','error')}
+}
+
+window.addEventListener('load',()=>{restoreSession();
+    // Restore theme
+    const t=localStorage.getItem('cj_theme');if(t==='dark')document.documentElement.dataset.theme='dark';
+});
 </script>
 </body>
 </html>
