@@ -558,21 +558,27 @@ def job_hash(title, company, platform):
 # ─── Selenium Scraper ────────────────────────────────────────────────────────
 
 def kill_zombie_browsers():
-    """Kill ALL chromedriver and headless Chrome processes using taskkill."""
-    try:
-        subprocess.run(
-            ["taskkill", "/F", "/IM", "chromedriver.exe"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            timeout=10, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-        )
-    except Exception:
-        pass
-    # Kill headless Chrome children (they have --headless in cmdline)
+    """Kill stale chromedriver and headless Chrome processes."""
+    if sys.platform == "win32":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "chromedriver.exe"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=10, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+            )
+        except Exception:
+            pass
+    else:
+        try:
+            subprocess.run(["pkill", "-f", "chromedriver"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+        except Exception:
+            pass
     try:
         import psutil
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
-                if (proc.info.get('name') or '').lower() == 'chrome.exe':
+                pname = (proc.info.get('name') or '').lower()
+                if pname in ('chrome', 'chrome.exe', 'chromium', 'chromium-browser'):
                     cmdline = ' '.join(proc.info.get('cmdline') or []).lower()
                     if '--headless' in cmdline:
                         proc.kill()
@@ -5171,19 +5177,34 @@ def main():
     global PUBLIC_URL
     PUBLIC_URL = None
     public_url = None
-    if ngrok_token:
+
+    # Detect Codespace public URL
+    codespace_name = os.environ.get("CODESPACE_NAME")
+    github_domain = os.environ.get("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN", "app.github.dev")
+    if codespace_name:
+        PUBLIC_URL = f"https://{codespace_name}-5050.{github_domain}"
+        public_url = PUBLIC_URL
+        log.info(f"[Codespace] Public URL: {public_url}")
+    elif ngrok_token:
         try:
             from pyngrok import ngrok, conf
-            # Kill ALL stale ngrok processes to free up session slots
-            try:
-                subprocess.run(
-                    ["taskkill", "/F", "/IM", "ngrok.exe"],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    timeout=10, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-                )
-                time.sleep(2)
-            except Exception:
-                pass
+            # Kill stale ngrok processes
+            if sys.platform == "win32":
+                try:
+                    subprocess.run(
+                        ["taskkill", "/F", "/IM", "ngrok.exe"],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        timeout=10, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                    )
+                    time.sleep(2)
+                except Exception:
+                    pass
+            else:
+                try:
+                    subprocess.run(["pkill", "-f", "ngrok"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+                    time.sleep(1)
+                except Exception:
+                    pass
             try:
                 ngrok.kill()
             except Exception:
