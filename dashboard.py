@@ -2963,7 +2963,7 @@ def api_email_status():
 
 @app.route("/api/register", methods=["POST"])
 def api_register():
-    """Register a new user — step 1: collect info, password, and send OTP."""
+    """Register a new user — direct registration without OTP."""
     data = request.json
     name = data.get("name", "").strip()
     email = data.get("email", "").strip()
@@ -2998,38 +2998,43 @@ def api_register():
     if not user_id:
         user_id = email.split("@")[0]
 
-    # Generate and store OTP
-    otp = generate_otp()
-    OTP_STORE[user_id] = {
-        "otp": otp,
-        "expires": datetime.now() + timedelta(minutes=10),
-        "verified": False,
-        "pending_data": {"name": name, "email": email, "phone": phone, "password_hash": hash_password(password)},
+    # Ensure unique user_id
+    base_id = user_id
+    counter = 1
+    while user_id in USERS:
+        user_id = f"{base_id}{counter}"
+        counter += 1
+
+    # Register directly — no OTP needed
+    USERS[user_id] = {
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "password_hash": hash_password(password),
+        "resume_path": "",
+        "applied_jobs": [],
+        "profile": {
+            "linkedin": "",
+            "location": "",
+            "experience": "",
+            "skills": "",
+            "bio": "",
+        },
+        "mfa_enabled": False,
+        "verified": True,
+        "registered_at": datetime.now().isoformat(),
     }
+    save_users()
+    log.info(f"[User] Registered: {name} ({email}) as {user_id}")
 
-    # Send OTP to both email and phone
-    email_sent = send_otp_email(email, otp, name)
-    sms_sent = send_otp_sms(phone, otp, name)
+    # Create session — log them in immediately
+    token = generate_session_token()
+    SESSIONS[token] = {"user_id": user_id, "logged_in_at": datetime.now().isoformat()}
 
-    if not email_sent and not sms_sent:
-        log.warning(f"[OTP] Both email and SMS failed for {user_id}, allowing fallback verification")
-        # Store user anyway but require OTP on the UI (they can see it in logs for dev)
-        return jsonify({
-            "success": True, "user_id": user_id, "otp_required": True,
-            "message": f"OTP delivery issue. Code sent to console log for testing. Check your email/phone.",
-            "debug_otp": otp  # Remove in production
-        })
-
-    channels = []
-    if email_sent:
-        channels.append(email)
-    if sms_sent:
-        channels.append(phone)
-
-    log.info(f"[Register] OTP sent for {user_id} to {', '.join(channels)}")
     return jsonify({
-        "success": True, "user_id": user_id, "otp_required": True,
-        "message": f"Verification code sent to {' & '.join(channels)}. Enter it to complete registration."
+        "success": True, "user_id": user_id, "otp_required": False,
+        "session_token": token,
+        "message": f"Registration successful! Welcome {name}!"
     })
 
 
@@ -4023,6 +4028,52 @@ def admin_delete_user():
     return jsonify({"success": True, "message": f"User '{uid}' deleted."})
 
 
+@app.route("/api/admin/add_user", methods=["POST"])
+def admin_add_user():
+    """Admin creates a new user account directly (no OTP needed)."""
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip()
+    phone = data.get("phone", "").strip()
+    password = data.get("password", "")
+    verified = data.get("verified", True)
+
+    if not name or not email or not password:
+        return jsonify({"success": False, "message": "Name, email, and password are required."})
+
+    # Check if email already exists
+    for uid, u in USERS.items():
+        if u.get("email", "").lower() == email.lower():
+            return jsonify({"success": False, "message": f"Email already registered as '{uid}'."})
+
+    pwd_err = validate_password(password)
+    if pwd_err:
+        return jsonify({"success": False, "message": pwd_err})
+
+    user_id = name.lower().replace(" ", "")
+    # Ensure unique ID
+    base_id = user_id
+    counter = 1
+    while user_id in USERS:
+        user_id = f"{base_id}{counter}"
+        counter += 1
+
+    USERS[user_id] = {
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "password_hash": hash_password(password),
+        "verified": verified,
+        "mfa_enabled": False,
+        "registered_at": datetime.now().isoformat(),
+        "applied_jobs": [],
+        "profile": {},
+    }
+    save_users()
+    log.info(f"[Admin] Created user: {user_id} ({email})")
+    return jsonify({"success": True, "message": f"User '{user_id}' created successfully."})
+
+
 @app.route("/api/admin/clear_applied", methods=["POST"])
 def admin_clear_applied():
     """Clear applied jobs list for a user."""
@@ -4051,6 +4102,70 @@ def admin_clear_email_log():
     save_emailed([])
     log.info("[Admin] Email log cleared")
     return jsonify({"success": True, "message": "Email log cleared."})
+
+
+@app.route("/api/admin/jobs", methods=["POST"])
+def admin_jobs_data():
+    """Return paginated jobs data for admin panel."""
+    data = request.json or {}
+    page = data.get("page", 1)
+    per_page = data.get("per_page", 50)
+    search = data.get("search", "").lower()
+
+    filtered = ALL_JOBS
+    if search:
+        filtered = [j for j in ALL_JOBS if search in j.get("title", "").lower()
+                     or search in j.get("company", "").lower()
+                     or search in j.get("platform", "").lower()
+                     or search in j.get("location", "").lower()]
+
+    total = len(filtered)
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_jobs = []
+    for j in filtered[start:end]:
+        page_jobs.append({
+            "title": j.get("title", ""),
+            "company": j.get("company", ""),
+            "location": j.get("location", ""),
+            "platform": j.get("platform", ""),
+            "url": j.get("url", ""),
+            "found_at": j.get("found_at", ""),
+            "is_new": j.get("is_new", False),
+        })
+
+    # Platform breakdown
+    platforms = {}
+    for j in ALL_JOBS:
+        p = j.get("platform", "Unknown")
+        platforms[p] = platforms.get(p, 0) + 1
+
+    return jsonify({
+        "jobs": page_jobs,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_all": len(ALL_JOBS),
+        "platforms": platforms,
+        "scan_running": SCAN_STATUS.get("running", False),
+    })
+
+
+@app.route("/api/admin/delete_job", methods=["POST"])
+def admin_delete_job():
+    """Delete a specific job by title+company+platform hash."""
+    data = request.json or {}
+    title = data.get("title", "")
+    company = data.get("company", "")
+    platform = data.get("platform", "")
+    target_hash = job_hash(title, company, platform)
+    before = len(ALL_JOBS)
+    ALL_JOBS[:] = [j for j in ALL_JOBS if job_hash(j.get("title",""), j.get("company",""), j.get("platform","")) != target_hash]
+    removed = before - len(ALL_JOBS)
+    if removed:
+        save_jobs_db()
+        log.info(f"[Admin] Deleted job: {title} @ {company}")
+    return jsonify({"success": removed > 0, "message": f"Removed {removed} job(s)."})
 
 
 ADMIN_PAGE_HTML = """<!DOCTYPE html>
@@ -4163,13 +4278,17 @@ tr:hover td{background:#1e293b}
     <!-- Tabs -->
     <div class="tabs">
         <button class="tab active" onclick="switchTab('users',this)">Users</button>
+        <button class="tab" onclick="switchTab('jobs',this)">Jobs</button>
         <button class="tab" onclick="switchTab('applications',this)">Applications</button>
         <button class="tab" onclick="switchTab('actions',this)">Quick Actions</button>
     </div>
 
     <!-- Users Tab -->
     <div class="tab-content" id="tab-users">
-        <input type="text" class="search-bar" placeholder="Search users by name, email, ID..." oninput="filterUsers(this.value)">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">
+            <input type="text" class="search-bar" style="margin-bottom:0;flex:1" placeholder="Search users by name, email, ID..." oninput="filterUsers(this.value)">
+            <button class="btn btn-green" onclick="openAddUser()">+ Add User</button>
+        </div>
         <div class="scroll-table">
             <table>
                 <thead><tr>
@@ -4177,6 +4296,31 @@ tr:hover td{background:#1e293b}
                 </tr></thead>
                 <tbody id="usersBody"></tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Jobs Tab -->
+    <div class="tab-content" id="tab-jobs" style="display:none">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+            <input type="text" class="search-bar" style="margin-bottom:0;flex:1;min-width:200px" placeholder="Search jobs by title, company, platform, location..." id="jobSearch" oninput="debounceJobSearch()">
+            <button class="btn btn-green" onclick="triggerScan()" id="scanBtn">Run Scan Now</button>
+            <span id="scanStatus" style="font-size:12px;color:#94a3b8"></span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="platformTags"></div>
+        <div class="scroll-table" style="max-height:600px">
+            <table>
+                <thead><tr>
+                    <th>Title</th><th>Company</th><th>Location</th><th>Platform</th><th>Found At</th><th>Link</th><th>Actions</th>
+                </tr></thead>
+                <tbody id="jobsBody"></tbody>
+            </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:8px 0">
+            <span style="font-size:12px;color:#64748b" id="jobsPageInfo"></span>
+            <div style="display:flex;gap:6px">
+                <button class="btn btn-outline" onclick="jobsPage(-1)" id="jobsPrev">Prev</button>
+                <button class="btn btn-outline" onclick="jobsPage(1)" id="jobsNext">Next</button>
+            </div>
         </div>
     </div>
 
@@ -4245,6 +4389,27 @@ tr:hover td{background:#1e293b}
         <div class="btn-row">
             <button class="btn btn-blue" onclick="doResetPassword()">Reset Password</button>
             <button class="btn btn-outline" onclick="closeModal('resetModal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-bg" id="addUserModal">
+    <div class="modal">
+        <h2>Add New User</h2>
+        <label>Name</label>
+        <input type="text" id="addUserName" placeholder="Full name">
+        <label>Email</label>
+        <input type="email" id="addUserEmail" placeholder="Email address">
+        <label>Phone</label>
+        <input type="tel" id="addUserPhone" placeholder="Phone (optional)">
+        <label>Password</label>
+        <input type="password" id="addUserPass" placeholder="Min 8 chars, 1 uppercase, 1 symbol">
+        <label>Verified</label>
+        <select id="addUserVerified"><option value="true">Yes</option><option value="false">No</option></select>
+        <div class="btn-row">
+            <button class="btn btn-green" onclick="doAddUser()">Create User</button>
+            <button class="btn btn-outline" onclick="closeModal('addUserModal')">Cancel</button>
         </div>
     </div>
 </div>
@@ -4478,6 +4643,133 @@ async function clearEmailLog(){
     toast(d.message,d.success?'success':'error');
     if(d.success)refreshData();
 }
+
+// ─── Jobs Tab ───
+let jobsCurrentPage=1;
+let jobsSearchTimer=null;
+
+function debounceJobSearch(){
+    clearTimeout(jobsSearchTimer);
+    jobsSearchTimer=setTimeout(()=>{jobsCurrentPage=1;loadJobs()},300);
+}
+
+function jobsPage(dir){
+    jobsCurrentPage+=dir;
+    if(jobsCurrentPage<1)jobsCurrentPage=1;
+    loadJobs();
+}
+
+async function loadJobs(){
+    const search=document.getElementById('jobSearch').value;
+    try{
+        const r=await fetch('/api/admin/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({page:jobsCurrentPage,per_page:50,search:search})});
+        const d=await r.json();
+        renderJobsTab(d);
+    }catch(e){toast('Failed to load jobs','error')}
+}
+
+function renderJobsTab(d){
+    // Platform tags
+    const platforms=d.platforms||{};
+    document.getElementById('platformTags').innerHTML=Object.entries(platforms).map(([p,c])=>`<span class="badge badge-blue" style="font-size:11px;padding:4px 10px">${p}: ${c}</span>`).join('');
+
+    // Scan status
+    document.getElementById('scanStatus').textContent=d.scan_running?'Scan in progress...':'';
+    document.getElementById('scanBtn').disabled=d.scan_running;
+    document.getElementById('scanBtn').textContent=d.scan_running?'Scanning...':'Run Scan Now';
+
+    // Jobs table
+    const rows=(d.jobs||[]).map(j=>{
+        const dt=j.found_at?new Date(j.found_at).toLocaleString():'';
+        const newBadge=j.is_new?'<span class="badge badge-green" style="margin-left:6px">NEW</span>':'';
+        return `<tr>
+            <td><strong>${j.title}</strong>${newBadge}</td>
+            <td>${j.company}</td>
+            <td style="font-size:12px">${j.location||'-'}</td>
+            <td><span class="badge badge-blue">${j.platform}</span></td>
+            <td style="font-size:11px">${dt}</td>
+            <td>${j.url?`<a href="${j.url}" target="_blank" style="color:#60a5fa;font-size:12px">Open</a>`:'-'}</td>
+            <td><button class="btn btn-red" onclick="deleteJob('${j.title.replace(/'/g,"\\'")}','${j.company.replace(/'/g,"\\'")}','${j.platform.replace(/'/g,"\\'")}')">Delete</button></td>
+        </tr>`;
+    }).join('');
+    document.getElementById('jobsBody').innerHTML=rows||'<tr><td colspan="7" class="empty">No jobs found</td></tr>';
+
+    // Pagination
+    const totalPages=Math.ceil(d.total/d.per_page)||1;
+    document.getElementById('jobsPageInfo').textContent=`Showing ${d.jobs.length} of ${d.total} jobs (Page ${d.page}/${totalPages}) | Total in DB: ${d.total_all}`;
+    document.getElementById('jobsPrev').disabled=d.page<=1;
+    document.getElementById('jobsNext').disabled=d.page>=totalPages;
+}
+
+async function deleteJob(title,company,platform){
+    if(!confirm('Delete job: '+title+' @ '+company+'?'))return;
+    const r=await fetch('/api/admin/delete_job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,company,platform})});
+    const d=await r.json();
+    toast(d.message,d.success?'success':'error');
+    if(d.success)loadJobs();
+}
+
+async function triggerScan(){
+    document.getElementById('scanBtn').disabled=true;
+    document.getElementById('scanBtn').textContent='Starting...';
+    try{
+        const r=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        const d=await r.json();
+        toast(d.message||'Scan started','success');
+        document.getElementById('scanStatus').textContent='Scan in progress...';
+        document.getElementById('scanBtn').textContent='Scanning...';
+        // Poll scan status every 10s
+        const poll=setInterval(async()=>{
+            try{
+                const sr=await fetch('/api/scan_status');
+                const sd=await sr.json();
+                if(!sd.running){
+                    clearInterval(poll);
+                    document.getElementById('scanBtn').disabled=false;
+                    document.getElementById('scanBtn').textContent='Run Scan Now';
+                    document.getElementById('scanStatus').textContent='';
+                    loadJobs();
+                    refreshData();
+                    toast('Scan complete!','success');
+                }
+            }catch(e){}
+        },10000);
+    }catch(e){
+        toast('Failed to start scan','error');
+        document.getElementById('scanBtn').disabled=false;
+        document.getElementById('scanBtn').textContent='Run Scan Now';
+    }
+}
+
+// ─── Add User from Admin ───
+function openAddUser(){
+    document.getElementById('addUserName').value='';
+    document.getElementById('addUserEmail').value='';
+    document.getElementById('addUserPhone').value='';
+    document.getElementById('addUserPass').value='';
+    document.getElementById('addUserVerified').value='true';
+    openModal('addUserModal');
+}
+
+async function doAddUser(){
+    const name=document.getElementById('addUserName').value.trim();
+    const email=document.getElementById('addUserEmail').value.trim();
+    const phone=document.getElementById('addUserPhone').value.trim();
+    const password=document.getElementById('addUserPass').value;
+    const verified=document.getElementById('addUserVerified').value==='true';
+    if(!name||!email||!password){toast('Name, email, and password are required','error');return}
+    const r=await fetch('/api/admin/add_user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,phone,password,verified})});
+    const d=await r.json();
+    toast(d.message,d.success?'success':'error');
+    if(d.success){closeModal('addUserModal');refreshData()}
+}
+
+// Load jobs when jobs tab is opened
+const origSwitchTab=switchTab;
+switchTab=function(name,el){
+    origSwitchTab(name,el);
+    if(name==='jobs')loadJobs();
+};
 
 // Auto-login if session exists
 if(sessionStorage.getItem('admin')){
