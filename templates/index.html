@@ -193,9 +193,6 @@
         .jd-section-title{font-size:12px;font-weight:700;color:var(--blue);margin-bottom:4px;display:flex;align-items:center;gap:4px}
         .jd-section-body{font-size:12px;line-height:1.6;color:var(--text2)}
 
-        /* ── OTP Input Boxes ── */
-        .otp-box{width:44px!important;height:52px;text-align:center;font-size:22px;font-weight:700;border:2px solid var(--border);border-radius:10px;outline:none;font-family:inherit;transition:border-color .15s;padding:0!important}
-        .otp-box:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
 
         /* ── AI Chat ── */
         .ai-window{display:none;position:fixed;top:0;left:0;right:0;bottom:56px;background:var(--white);z-index:200;flex-direction:column}
@@ -397,9 +394,9 @@
                 <div style="text-align:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
                     <div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:4px">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--green)"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
-                        <span style="font-size:10px;color:var(--green);font-weight:600">2FA Protected</span>
+                        <span style="font-size:10px;color:var(--green);font-weight:600">Secure Login</span>
                     </div>
-                    <p style="font-size:10px;color:var(--text3)">Password protected, optional 2FA</p>
+                    <p style="font-size:10px;color:var(--text3)">Password protected</p>
                 </div>
             </div>
 
@@ -421,28 +418,6 @@
                 <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px">Resume (PDF)</label>
                 <input type="file" id="landingRegResume" accept=".pdf,.doc,.docx" style="width:100%;padding:8px;margin-bottom:14px;font-size:13px">
                 <button class="btn btn-primary" style="width:100%;padding:14px;font-size:14px" onclick="landingRegister()" id="landingRegBtn">Create Account</button>
-            </div>
-
-            <!-- Landing OTP Form (2FA step) -->
-            <div id="landingOtpForm" style="display:none">
-                <div style="text-align:center;margin-bottom:14px">
-                    <div style="width:50px;height:50px;background:linear-gradient(135deg,#16a34a,#22c55e);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px">
-                        <svg width="24" height="24" fill="#fff" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
-                    </div>
-                    <p style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px">2-Factor Authentication</p>
-                    <p style="font-size:12px;color:var(--text2)" id="landingOtpMsg">Enter the 6-digit code sent to your email</p>
-                </div>
-                <div style="display:flex;gap:6px;justify-content:center;margin:10px 0">
-                    <input type="text" class="otp-box" id="lOtp1" maxlength="1" oninput="lOtpNext(1)" onkeydown="lOtpBack(event,1)">
-                    <input type="text" class="otp-box" id="lOtp2" maxlength="1" oninput="lOtpNext(2)" onkeydown="lOtpBack(event,2)">
-                    <input type="text" class="otp-box" id="lOtp3" maxlength="1" oninput="lOtpNext(3)" onkeydown="lOtpBack(event,3)">
-                    <input type="text" class="otp-box" id="lOtp4" maxlength="1" oninput="lOtpNext(4)" onkeydown="lOtpBack(event,4)">
-                    <input type="text" class="otp-box" id="lOtp5" maxlength="1" oninput="lOtpNext(5)" onkeydown="lOtpBack(event,5)">
-                    <input type="text" class="otp-box" id="lOtp6" maxlength="1" oninput="lOtpNext(6)" onkeydown="lOtpBack(event,6)">
-                </div>
-                <button class="btn btn-primary" style="width:100%;margin-top:10px;padding:14px;font-size:14px" onclick="landingVerifyOtp()" id="landingVerifyBtn">Verify & Login</button>
-                <p style="text-align:center;margin-top:8px;font-size:12px;color:var(--text3)" id="landingOtpTimer">Resend in 60s</p>
-                <p style="text-align:center;margin-top:6px"><a href="#" onclick="switchAuthTab('login')" style="font-size:11px;color:var(--text3);text-decoration:none">Back to Login</a></p>
             </div>
 
             <!-- Reset Password Form -->
@@ -481,7 +456,7 @@
         </div>
     </div>
 
-    <!-- Auth Modal (Register / Login / OTP) -->
+    <!-- Auth Modal (Register / Login) -->
     <div class="modal-overlay" id="authModal">
         <div class="modal-box">
             <div class="modal-handle"></div>
@@ -527,30 +502,6 @@
                 </p>
             </div>
 
-            <!-- Step 2: OTP Verification -->
-            <div id="authStep2" style="display:none">
-                <h2>Verify Your Identity</h2>
-                <div style="text-align:center;margin:12px 0">
-                    <div style="width:60px;height:60px;background:linear-gradient(135deg,#2563eb,#60a5fa);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
-                        <svg width="28" height="28" fill="#fff" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                    </div>
-                    <p style="font-size:13px;color:var(--text2)" id="otpSentMsg">OTP sent to your email & phone</p>
-                </div>
-                <label>Enter 6-digit OTP <span style="color:var(--red)">*</span></label>
-                <div style="display:flex;gap:6px;justify-content:center;margin:10px 0">
-                    <input type="text" id="otpInput1" class="otp-box" maxlength="1" oninput="otpNext(1)" onkeydown="otpBack(event,1)">
-                    <input type="text" id="otpInput2" class="otp-box" maxlength="1" oninput="otpNext(2)" onkeydown="otpBack(event,2)">
-                    <input type="text" id="otpInput3" class="otp-box" maxlength="1" oninput="otpNext(3)" onkeydown="otpBack(event,3)">
-                    <input type="text" id="otpInput4" class="otp-box" maxlength="1" oninput="otpNext(4)" onkeydown="otpBack(event,4)">
-                    <input type="text" id="otpInput5" class="otp-box" maxlength="1" oninput="otpNext(5)" onkeydown="otpBack(event,5)">
-                    <input type="text" id="otpInput6" class="otp-box" maxlength="1" oninput="otpNext(6)" onkeydown="otpBack(event,6)">
-                </div>
-                <button class="btn btn-primary" style="width:100%;margin-top:12px;padding:14px;font-size:14px" onclick="verifyOTP()" id="verifyBtn">Verify & Continue</button>
-                <div style="text-align:center;margin-top:10px">
-                    <span style="font-size:12px;color:var(--text3)" id="otpTimer">Resend in 60s</span>
-                    <button class="btn btn-outline btn-xs" id="resendBtn" style="display:none;margin-left:6px" onclick="resendOTP()">Resend OTP</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -601,19 +552,6 @@
 
                 <label>Upload / Update Resume</label>
                 <input type="file" id="profResume" accept=".pdf,.doc,.docx" style="padding:8px">
-
-                <h3 style="font-size:13px;font-weight:700;margin:18px 0 8px;color:var(--text2)">Security</h3>
-                <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">
-                    <div>
-                        <div style="font-size:13px;font-weight:600;color:var(--text)">Two-Factor Authentication</div>
-                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Email OTP on every login</div>
-                    </div>
-                    <label style="position:relative;width:44px;height:24px;margin:0;cursor:pointer">
-                        <input type="checkbox" id="mfaToggle" onchange="toggleMfa()" style="opacity:0;width:0;height:0">
-                        <span style="position:absolute;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:12px;transition:.3s"></span>
-                        <span id="mfaSlider" style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span>
-                    </label>
-                </div>
 
                 <button class="btn btn-primary" style="width:100%;margin-top:14px;padding:14px;font-size:14px" onclick="saveProfile()">Save Profile</button>
                 <button class="btn btn-outline" style="width:100%;margin-top:8px;padding:12px;font-size:13px;color:var(--red);border-color:var(--red)" onclick="logoutUser()">Logout</button>
@@ -915,7 +853,7 @@ window.fetch=function(url,opts){
         return resp;
     });
 };
-let allJobs=[],currentFilter='all',currentCategory='all',currentSort='recent',countdownInterval,currentUserId='',pendingUserId='',otpTimerInterval=null,isLoggedIn=false;
+let allJobs=[],currentFilter='all',currentCategory='all',currentSort='recent',countdownInterval,currentUserId='',isLoggedIn=false;
 let bookmarkedJobs=new Set(),compareJobs=new Set(),jobNotes={},reviewStars=0;
 function esc(t){if(!t)return'';const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 function timeAgo(d){const s=Math.floor((new Date()-new Date(d))/1000);if(s<60)return'Just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
@@ -1046,47 +984,6 @@ function showRegisterStep(){
 function showLoginStep(){
     document.getElementById('authStep1').style.display='none';
     document.getElementById('authStepLogin').style.display='block';
-    document.getElementById('authStep2').style.display='none';
-}
-function showOTPStep(msg){
-    document.getElementById('authStep1').style.display='none';
-    document.getElementById('authStepLogin').style.display='none';
-    document.getElementById('authStep2').style.display='block';
-    document.getElementById('otpSentMsg').textContent=msg||'OTP sent to your email & phone';
-    // Clear OTP boxes
-    for(let i=1;i<=6;i++)document.getElementById('otpInput'+i).value='';
-    document.getElementById('otpInput1').focus();
-    startOTPTimer();
-}
-function otpNext(n){
-    const cur=document.getElementById('otpInput'+n);
-    if(cur.value&&n<6)document.getElementById('otpInput'+(n+1)).focus();
-    if(n===6&&cur.value)verifyOTP();
-}
-function otpBack(e,n){
-    if(e.key==='Backspace'&&!document.getElementById('otpInput'+n).value&&n>1){
-        document.getElementById('otpInput'+(n-1)).focus();
-    }
-}
-function getOTPValue(){
-    let otp='';
-    for(let i=1;i<=6;i++)otp+=document.getElementById('otpInput'+i).value;
-    return otp;
-}
-function startOTPTimer(){
-    let sec=60;
-    document.getElementById('resendBtn').style.display='none';
-    document.getElementById('otpTimer').style.display='inline';
-    if(otpTimerInterval)clearInterval(otpTimerInterval);
-    otpTimerInterval=setInterval(()=>{
-        sec--;
-        document.getElementById('otpTimer').textContent=`Resend in ${sec}s`;
-        if(sec<=0){
-            clearInterval(otpTimerInterval);
-            document.getElementById('otpTimer').style.display='none';
-            document.getElementById('resendBtn').style.display='inline-flex';
-        }
-    },1000);
 }
 
 async function registerUser(){
@@ -1106,11 +1003,7 @@ async function registerUser(){
         const r=await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({name:n,email:e,phone:p,password:pw})});
         const d=await r.json();
-        if(d.success&&d.otp_required){
-            pendingUserId=d.user_id;
-            showToast(d.message,'success');
-            showOTPStep(d.message);
-        }else if(d.success&&!d.otp_required){
+        if(d.success){
             currentUserId=d.user_id;isLoggedIn=true;
             localStorage.setItem('cj_user_id',d.user_id);
             localStorage.setItem('cj_session',d.session_token||'');
@@ -1133,11 +1026,7 @@ async function loginUser(){
         const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({email:e,password})});
         const d=await r.json();
-        if(d.success&&d.otp_required){
-            pendingUserId=d.user_id;
-            showToast(d.message,'success');
-            showOTPStep(d.message);
-        }else if(d.success&&!d.otp_required){
+        if(d.success){
             currentUserId=d.user_id;isLoggedIn=true;
             localStorage.setItem('cj_user_id',d.user_id);
             localStorage.setItem('cj_session',d.session_token||'');
@@ -1148,43 +1037,6 @@ async function loginUser(){
         }else{showToast(d.message||'Login failed','error')}
     }catch(err){showToast('Network error — check connection','error')}
     finally{btn.disabled=false;btn.textContent='Login'}
-}
-
-async function verifyOTP(){
-    const otp=getOTPValue();
-    if(otp.length!==6){showToast('Enter complete 6-digit OTP','error');return}
-    const btn=document.getElementById('verifyBtn');btn.disabled=true;btn.textContent='Verifying...';
-    try{
-        const r=await fetch('/api/verify_otp',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({user_id:pendingUserId,otp:otp})});
-        const d=await r.json();
-        if(d.success){
-            currentUserId=d.user_id;
-            isLoggedIn=true;
-            localStorage.setItem('cj_user_id',d.user_id);
-            localStorage.setItem('cj_session',d.session_token||'');
-            showToast(d.message,'success');
-            closeModal('authModal');
-            // Upload resume if provided during registration
-            const f=document.getElementById('regResume').files[0];
-            if(f){
-                const fd=new FormData();fd.append('user_id',currentUserId);fd.append('resume',f);
-                fetch('/api/upload_resume',{method:'POST',body:fd});
-            }
-            showApp();
-        }else{showToast(d.message||'Verification failed','error')}
-    }catch(err){showToast('Network error','error')}
-    finally{btn.disabled=false;btn.textContent='Verify & Continue'}
-}
-
-async function resendOTP(){
-    try{
-        const r=await fetch('/api/resend_otp',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({user_id:pendingUserId})});
-        const d=await r.json();
-        showToast(d.message||'OTP resent!','info');
-        startOTPTimer();
-    }catch(err){showToast('Failed to resend','error')}
 }
 
 function updateAvatarUI(){
@@ -1228,10 +1080,6 @@ async function loadAndShowProfile(){
         const offset=163.36-(163.36*score/100);
         document.getElementById('scoreCircle').style.strokeDashoffset=offset;
         document.getElementById('scoreCircle').style.stroke=score>=80?'var(--green)':score>=50?'var(--blue)':'var(--orange)';
-        // 2FA toggle state
-        const mfaOn=d.mfa_enabled||false;
-        document.getElementById('mfaToggle').checked=mfaOn;
-        updateMfaSlider(mfaOn);
         openModal('profileModal');
     }catch(err){showToast('Failed to load profile','error')}
 }
@@ -1260,22 +1108,6 @@ async function saveProfile(){
     }catch(err){showToast('Save failed','error')}
 }
 
-function updateMfaSlider(on){
-    const slider=document.getElementById('mfaSlider');
-    const bg=slider.previousElementSibling;
-    if(on){slider.style.left='22px';bg.style.background='#2563eb'}
-    else{slider.style.left='2px';bg.style.background='#ccc'}
-}
-async function toggleMfa(){
-    const enable=document.getElementById('mfaToggle').checked;
-    try{
-        const r=await fetch('/api/toggle_mfa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:currentUserId,enable})});
-        const d=await r.json();
-        if(d.success){showToast(d.message,'success');updateMfaSlider(enable)}
-        else{showToast(d.message,'error');document.getElementById('mfaToggle').checked=!enable;updateMfaSlider(!enable)}
-    }catch(e){showToast('Failed to update 2FA','error');document.getElementById('mfaToggle').checked=!enable;updateMfaSlider(!enable)}
-}
-
 function logoutUser(){
     currentUserId='';isLoggedIn=false;
     localStorage.removeItem('cj_user_id');
@@ -1302,7 +1134,6 @@ function switchAuthTab(tab){
     document.getElementById('landingRegTab').classList.toggle('active',tab==='register');
     document.getElementById('landingLoginForm').style.display=tab==='login'?'block':'none';
     document.getElementById('landingRegForm').style.display=tab==='register'?'block':'none';
-    document.getElementById('landingOtpForm').style.display='none';
     document.getElementById('landingResetForm').style.display='none';
 }
 function showResetPassword(){
@@ -1342,22 +1173,7 @@ async function landingLogin(){
     try{
         const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
         const d=await r.json();
-        if(d.success && d.otp_required){
-            // 2FA enabled — show OTP form
-            pendingUserId=d.user_id;
-            document.getElementById('landingLoginForm').style.display='none';
-            document.getElementById('landingRegForm').style.display='none';
-            document.getElementById('landingResetForm').style.display='none';
-            document.querySelector('.auth-tabs').style.display='none';
-            const otpForm=document.getElementById('landingOtpForm');
-            otpForm.style.display='block';
-            document.getElementById('landingOtpMsg').textContent=d.message||'2FA code sent to your email';
-            // Clear any previous OTP values
-            for(let i=1;i<=6;i++){document.getElementById('lOtp'+i).value=''}
-            startLandingOtpTimer();
-            setTimeout(()=>{otpForm.scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('lOtp1').focus()},200);
-        }else if(d.success && !d.otp_required){
-            // No 2FA — direct login
+        if(d.success){
             currentUserId=d.user_id;isLoggedIn=true;
             localStorage.setItem('cj_user_id',d.user_id);
             localStorage.setItem('cj_session',d.session_token||'');
@@ -1383,52 +1199,21 @@ async function landingRegister(){
     try{
         const r=await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,phone,password})});
         const d=await r.json();
-        if(d.success){pendingUserId=d.user_id;
+        if(d.success){
+            currentUserId=d.user_id;isLoggedIn=true;
+            localStorage.setItem('cj_user_id',d.user_id);
+            localStorage.setItem('cj_session',d.session_token||'');
             // Upload resume if provided
             const resumeFile=document.getElementById('landingRegResume').files[0];
             if(resumeFile){const fd=new FormData();fd.append('user_id',d.user_id);fd.append('resume',resumeFile);
                 fetch('/api/upload_resume',{method:'POST',body:fd}).catch(()=>{});}
-            document.getElementById('landingRegForm').style.display='none';
-            document.getElementById('landingLoginForm').style.display='none';
-            document.querySelector('.auth-tabs').style.display='none';
-            document.getElementById('landingOtpForm').style.display='block';
-            document.getElementById('landingOtpMsg').textContent=d.message||'Verification code sent to your email & phone';
-            startLandingOtpTimer();
-            document.getElementById('lOtp1').focus();
+            showToast(d.message||'Registration successful!','success');
+            showApp();
+            loadJobs();
         }else{showToast(d.message||'Registration failed','error')}
     }catch(e){showToast('Network error','error')}
     btn.disabled=false;btn.textContent='Create Account';
 }
-function lOtpNext(i){const el=document.getElementById('lOtp'+i);if(el.value&&i<6)document.getElementById('lOtp'+(i+1)).focus()}
-function lOtpBack(e,i){if(e.key==='Backspace'&&!document.getElementById('lOtp'+i).value&&i>1)document.getElementById('lOtp'+(i-1)).focus()}
-async function landingVerifyOtp(){
-    const otp=[1,2,3,4,5,6].map(i=>document.getElementById('lOtp'+i).value).join('');
-    if(otp.length!==6){showToast('Enter 6-digit OTP','error');return}
-    const btn=document.getElementById('landingVerifyBtn');btn.disabled=true;btn.textContent='Verifying...';
-    try{
-        const r=await fetch('/api/verify_otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:pendingUserId,otp})});
-        const d=await r.json();
-        if(d.success){
-            currentUserId=d.user_id;isLoggedIn=true;
-            localStorage.setItem('cj_user_id',d.user_id);
-            localStorage.setItem('cj_session',d.session_token);
-            showToast(d.message||'Welcome!','success');
-            showApp();
-        }else{showToast(d.message||'Invalid OTP','error')}
-    }catch(e){showToast('Network error','error')}
-    btn.disabled=false;btn.textContent='Verify & Continue';
-}
-let landingOtpTimerInterval=null;
-function startLandingOtpTimer(){let s=60;const el=document.getElementById('landingOtpTimer');
-    if(landingOtpTimerInterval)clearInterval(landingOtpTimerInterval);
-    landingOtpTimerInterval=setInterval(()=>{s--;el.textContent=s>0?`Resend in ${s}s`:'';if(s<=0){clearInterval(landingOtpTimerInterval);el.innerHTML='<a href="#" onclick="landingResendOtp()" style="color:var(--blue);font-weight:600;text-decoration:none">Resend OTP</a>'}},1000);
-}
-async function landingResendOtp(){
-    try{const r=await fetch('/api/resend_otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:pendingUserId})});
-        const d=await r.json();showToast(d.message||'OTP resent','info');if(d.success)startLandingOtpTimer();
-    }catch(e){showToast('Failed to resend','error')}
-}
-
 // Restore session on load
 function restoreSession(){
     const uid=localStorage.getItem('cj_user_id');
