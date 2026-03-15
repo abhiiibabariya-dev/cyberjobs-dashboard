@@ -3269,10 +3269,11 @@ def api_reset_password():
         except Exception as e:
             log.error(f"[Auth] Reset email error: {e}")
 
-    return jsonify({
-        "success": email_sent,
-        "message": f"Password reset link sent to {email}. Check your inbox!" if email_sent else "Failed to send reset email. Try again.",
-    })
+    if email_sent:
+        return jsonify({"success": True, "message": f"Password reset link sent to {email}. Check your inbox!"})
+    else:
+        # Email not available — give the user the reset link directly
+        return jsonify({"success": True, "reset_url": reset_link, "message": "Redirecting to password reset..."})
 
 
 @app.route("/reset-password")
