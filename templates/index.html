@@ -1313,7 +1313,10 @@ async function requestReset(){
     try{
         const r=await fetch('/api/reset_password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
         const d=await r.json();
-        if(d.success){
+        if(d.success&&d.reset_url){
+            // No email service — redirect to reset page directly
+            window.location.href=d.reset_url;
+        }else if(d.success){
             document.getElementById('resetStep1').style.display='none';
             document.getElementById('resetStep2').style.display='block';
             document.getElementById('resetSentMsg').textContent=d.message||'We\'ve sent a password reset link to your email. Click the link to set a new password.';
