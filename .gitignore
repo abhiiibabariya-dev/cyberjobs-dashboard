@@ -7,7 +7,6 @@ config.json
 resumes/
 dashboard_emailed.json
 application_log.json
-users.json
 emailed_companies.json
 found_jobs.json
 seen_jobs.json

@@ -1,0 +1,36 @@
+{
+  "abhishek": {
+    "name": "Abhishek Babariya",
+    "email": "abhibabariya007@gmail.com",
+    "phone": "",
+    "resume_path": "",
+    "applied_jobs": [],
+    "profile": {
+      "linkedin": "",
+      "location": "",
+      "experience": "",
+      "skills": "",
+      "bio": ""
+    },
+    "verified": true,
+    "registered_at": "",
+    "password_hash": "$2b$12$BN1YXQDoUhRX/weoo86R4u0n/C8S5IKZEttYsL7DzYg5WVYopHTRC",
+    "mfa_enabled": false
+  },
+  "dhirajvarude": {
+    "name": "DHIRAJ VARUDE",
+    "email": "dhirajvarude0212@gmail.com",
+    "phone": "",
+    "resume_path": "",
+    "applied_jobs": [],
+    "profile": {
+      "linkedin": "",
+      "location": "",
+      "experience": "",
+      "skills": "",
+      "bio": ""
+    },
+    "verified": false,
+    "registered_at": ""
+  }
+}
