@@ -5287,6 +5287,17 @@ if os.environ.get("RENDER") or os.environ.get("GUNICORN_INIT"):
                 run_scan_subprocess()
     threading.Thread(target=_render_periodic_scan, daemon=True).start()
 
+    # Periodic reload from disk so all gunicorn workers stay in sync
+    def _sync_jobs_from_disk():
+        while True:
+            time.sleep(120)  # Every 2 minutes
+            try:
+                load_jobs_db()
+                log.info(f"[Sync] Reloaded {len(ALL_JOBS)} jobs from disk")
+            except Exception:
+                pass
+    threading.Thread(target=_sync_jobs_from_disk, daemon=True).start()
+
     # Keep-alive self-ping to prevent Render free tier from sleeping
     def _keep_alive():
         render_url = os.environ.get("RENDER_EXTERNAL_URL", "")
