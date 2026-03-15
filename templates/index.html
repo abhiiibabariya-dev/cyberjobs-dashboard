@@ -500,6 +500,10 @@
                     <span style="padding:12px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text2);white-space:nowrap">+91</span>
                     <input type="tel" id="regPhone" placeholder="9876543210" maxlength="10" style="flex:1">
                 </div>
+                <label>Password <span style="color:var(--red)">*</span></label>
+                <input type="password" id="regPass" placeholder="Min 8 chars, 1 uppercase, 1 symbol">
+                <label>Confirm Password <span style="color:var(--red)">*</span></label>
+                <input type="password" id="regPassConfirm" placeholder="Re-enter password">
                 <label>Resume (PDF)</label>
                 <input type="file" id="regResume" accept=".pdf,.doc,.docx" style="padding:8px">
                 <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:14px;font-size:14px" onclick="registerUser()" id="regBtn">Create Account & Verify</button>
@@ -511,10 +515,13 @@
             <!-- Step 1b: Login -->
             <div id="authStepLogin" style="display:none">
                 <h2>Login to Your Account</h2>
-                <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Enter your email. We'll send an OTP to verify your identity.</p>
+                <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Enter your email and password to login.</p>
                 <label>Email <span style="color:var(--red)">*</span></label>
                 <input type="email" id="loginEmail" placeholder="rahul@gmail.com">
-                <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:14px;font-size:14px" onclick="loginUser()" id="loginBtn">Send OTP</button>
+                <label style="margin-top:10px">Password <span style="color:var(--red)">*</span></label>
+                <input type="password" id="loginPass" placeholder="Enter password">
+                <p style="text-align:right;margin:6px 0 0"><a href="#" onclick="showResetPassword()" style="color:var(--blue);font-size:12px;text-decoration:none">Forgot Password?</a></p>
+                <button class="btn btn-primary" style="width:100%;margin-top:10px;padding:14px;font-size:14px" onclick="loginUser()" id="loginBtn">Login</button>
                 <p style="text-align:center;margin-top:12px;font-size:12px;color:var(--text3)">
                     New here? <a href="#" onclick="showRegisterStep()" style="color:var(--blue);font-weight:600;text-decoration:none">Create Account</a>
                 </p>
@@ -1085,13 +1092,19 @@ function startOTPTimer(){
 async function registerUser(){
     const n=document.getElementById('regName').value.trim(),
           e=document.getElementById('regEmail').value.trim(),
-          p=document.getElementById('regPhone').value.trim();
-    if(!n||!e||!p){showToast('All fields are required','error');return}
+          p=document.getElementById('regPhone').value.trim(),
+          pw=document.getElementById('regPass').value,
+          pwc=document.getElementById('regPassConfirm').value;
+    if(!n||!e||!p||!pw){showToast('All fields are required','error');return}
+    if(pw.length<8){showToast('Password must be at least 8 characters','error');return}
+    if(!/[A-Z]/.test(pw)){showToast('Password must contain at least 1 uppercase letter','error');return}
+    if(!/[!@#$%^&*(),.?":{}|<>]/.test(pw)){showToast('Password must contain at least 1 symbol','error');return}
+    if(pw!==pwc){showToast('Passwords do not match','error');return}
     if(p.replace(/\D/g,'').length!==10){showToast('Enter a valid 10-digit phone number','error');return}
     const btn=document.getElementById('regBtn');btn.disabled=true;btn.textContent='Sending OTP...';
     try{
         const r=await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({name:n,email:e,phone:p})});
+            body:JSON.stringify({name:n,email:e,phone:p,password:pw})});
         const d=await r.json();
         if(d.success&&d.otp_required){
             pendingUserId=d.user_id;
@@ -1104,19 +1117,29 @@ async function registerUser(){
 
 async function loginUser(){
     const e=document.getElementById('loginEmail').value.trim();
-    if(!e){showToast('Email is required','error');return}
-    const btn=document.getElementById('loginBtn');btn.disabled=true;btn.textContent='Sending OTP...';
+    const password=document.getElementById('loginPass').value;
+    if(!e){showToast('Enter your email','error');return}
+    if(!password){showToast('Enter your password','error');return}
+    const btn=document.getElementById('loginBtn');btn.disabled=true;btn.textContent='Verifying...';
     try{
         const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({email:e})});
+            body:JSON.stringify({email:e,password})});
         const d=await r.json();
         if(d.success&&d.otp_required){
             pendingUserId=d.user_id;
             showToast(d.message,'success');
             showOTPStep(d.message);
+        }else if(d.success&&!d.otp_required){
+            currentUserId=d.user_id;isLoggedIn=true;
+            localStorage.setItem('cj_user_id',d.user_id);
+            localStorage.setItem('cj_session',d.session_token||'');
+            showToast(d.message||'Login successful!','success');
+            closeModal('authModal');
+            showApp();
+            loadJobs();
         }else{showToast(d.message||'Login failed','error')}
-    }catch(err){showToast('Network error','error')}
-    finally{btn.disabled=false;btn.textContent='Send OTP'}
+    }catch(err){showToast('Network error — check connection','error')}
+    finally{btn.disabled=false;btn.textContent='Login'}
 }
 
 async function verifyOTP(){
@@ -1330,12 +1353,6 @@ async function landingLogin(){
             showToast(d.message||'Login successful!','success');
             showApp();
             loadJobs();
-        }else if(d.needs_password_setup){
-            // Old user without password — auto-redirect to reset
-            showToast('Please set a password for your account','info');
-            document.getElementById('resetEmail').value=email;
-            showResetPassword();
-            requestReset();
         }else{showToast(d.message||'Login failed','error')}
     }catch(e){console.error('Login error:',e);showToast('Network error — check connection','error')}
     finally{btn.disabled=false;btn.textContent='Login'}
