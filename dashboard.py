@@ -4104,6 +4104,57 @@ def admin_clear_email_log():
     return jsonify({"success": True, "message": "Email log cleared."})
 
 
+@app.route("/api/admin/sync_push", methods=["POST"])
+def admin_sync_push():
+    """Receive jobs and users data from another instance (e.g. Codespaces -> Render).
+    This allows instant data sync without redeploying."""
+    global ALL_JOBS
+    data = request.json or {}
+    secret = data.get("secret", "")
+    if secret != ADMIN_SECRET:
+        return jsonify({"success": False, "message": "Unauthorized."})
+
+    synced = []
+
+    # Sync jobs
+    if "jobs" in data:
+        ALL_JOBS = data["jobs"]
+        save_jobs_db()
+        synced.append(f"{len(ALL_JOBS)} jobs")
+
+    # Sync users
+    if "users" in data:
+        for uid, udata in data["users"].items():
+            if uid not in USERS:
+                USERS[uid] = udata
+            else:
+                # Merge — keep existing applied_jobs, update profile info
+                for key in ["name", "email", "phone", "password_hash", "verified",
+                            "mfa_enabled", "profile", "registered_at"]:
+                    if key in udata:
+                        USERS[uid][key] = udata[key]
+        save_users()
+        synced.append(f"{len(data['users'])} users")
+
+    log.info(f"[Sync] Received push: {', '.join(synced)}")
+    return jsonify({"success": True, "message": f"Synced: {', '.join(synced)}"})
+
+
+@app.route("/api/admin/sync_pull", methods=["POST"])
+def admin_sync_pull():
+    """Return all jobs and users data for pulling to another instance."""
+    data = request.json or {}
+    secret = data.get("secret", "")
+    if secret != ADMIN_SECRET:
+        return jsonify({"success": False, "message": "Unauthorized."})
+    return jsonify({
+        "success": True,
+        "jobs": ALL_JOBS,
+        "users": {uid: u for uid, u in USERS.items()},
+        "stats": STATS,
+    })
+
+
 @app.route("/api/admin/jobs", methods=["POST"])
 def admin_jobs_data():
     """Return paginated jobs data for admin panel."""
@@ -4340,6 +4391,17 @@ tr:hover td{background:#1e293b}
     <div class="tab-content" id="tab-actions" style="display:none">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
             <div class="stat-card" style="text-align:left">
+                <h3 style="font-size:14px;color:#f1f5f9;margin-bottom:12px">Live Sync</h3>
+                <p style="font-size:11px;color:#64748b;margin-bottom:10px">Push jobs & users from this instance to another (e.g. Codespaces to Render) instantly — no redeploy needed.</p>
+                <label style="font-size:11px;color:#94a3b8;font-weight:600">Target URL</label>
+                <input type="text" id="syncTargetUrl" value="https://cyberjobs-4mki.onrender.com" style="width:100%;padding:8px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;font-size:12px;margin:4px 0 8px;outline:none">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    <button class="btn btn-green" style="width:100%;padding:12px" onclick="syncPush()" id="syncPushBtn">Sync Data to Render</button>
+                    <button class="btn btn-blue" style="width:100%;padding:12px" onclick="syncPull()" id="syncPullBtn">Pull Data from Render</button>
+                </div>
+                <div id="syncResult" style="font-size:11px;color:#94a3b8;margin-top:8px"></div>
+            </div>
+            <div class="stat-card" style="text-align:left">
                 <h3 style="font-size:14px;color:#f1f5f9;margin-bottom:12px">Danger Zone</h3>
                 <div style="display:flex;flex-direction:column;gap:8px">
                     <button class="btn btn-red" style="width:100%;padding:12px" onclick="confirmAction('Clear ALL Jobs','This will remove all scraped jobs from database.',clearAllJobs)">Clear All Jobs</button>
@@ -4443,6 +4505,7 @@ async function adminLogin(){
     const d=await r.json();
     if(d.success){
         sessionStorage.setItem('admin','1');
+        sessionStorage.setItem('admin_secret',pass);
         document.getElementById('loginGate').style.display='none';
         document.getElementById('adminPanel').style.display='block';
         refreshData();
@@ -4770,6 +4833,49 @@ switchTab=function(name,el){
     origSwitchTab(name,el);
     if(name==='jobs')loadJobs();
 };
+
+// ─── Live Sync ───
+async function syncPush(){
+    const target=document.getElementById('syncTargetUrl').value.trim().replace(/\/$/,'');
+    if(!target){toast('Enter target URL','error');return}
+    const btn=document.getElementById('syncPushBtn');
+    btn.disabled=true;btn.textContent='Syncing...';
+    document.getElementById('syncResult').textContent='Fetching local data...';
+    try{
+        // Get local data
+        const lr=await fetch('/api/admin/sync_pull',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:sessionStorage.getItem('admin_secret')||''})});
+        const local=await lr.json();
+        if(!local.success){toast('Failed to read local data','error');return}
+        document.getElementById('syncResult').textContent=`Pushing ${local.jobs.length} jobs + ${Object.keys(local.users).length} users to ${target}...`;
+        // Push to target
+        const pr=await fetch(target+'/api/admin/sync_push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:sessionStorage.getItem('admin_secret')||'',jobs:local.jobs,users:local.users})});
+        const pd=await pr.json();
+        toast(pd.message||'Sync complete!',pd.success?'success':'error');
+        document.getElementById('syncResult').textContent=pd.success?'Sync successful! Data is live on '+target:'Sync failed: '+pd.message;
+    }catch(e){toast('Sync failed: '+e.message,'error');document.getElementById('syncResult').textContent='Error: '+e.message}
+    finally{btn.disabled=false;btn.textContent='Sync Data to Render'}
+}
+
+async function syncPull(){
+    const target=document.getElementById('syncTargetUrl').value.trim().replace(/\/$/,'');
+    if(!target){toast('Enter target URL','error');return}
+    const btn=document.getElementById('syncPullBtn');
+    btn.disabled=true;btn.textContent='Pulling...';
+    document.getElementById('syncResult').textContent='Pulling data from '+target+'...';
+    try{
+        const pr=await fetch(target+'/api/admin/sync_pull',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:sessionStorage.getItem('admin_secret')||''})});
+        const remote=await pr.json();
+        if(!remote.success){toast('Failed to pull remote data','error');return}
+        document.getElementById('syncResult').textContent=`Importing ${remote.jobs.length} jobs + ${Object.keys(remote.users).length} users...`;
+        // Push to local
+        const lr=await fetch('/api/admin/sync_push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:sessionStorage.getItem('admin_secret')||'',jobs:remote.jobs,users:remote.users})});
+        const ld=await lr.json();
+        toast(ld.message||'Pull complete!',ld.success?'success':'error');
+        document.getElementById('syncResult').textContent=ld.success?'Pull successful! Local data updated.':'Pull failed: '+ld.message;
+        if(ld.success)refreshData();
+    }catch(e){toast('Pull failed: '+e.message,'error');document.getElementById('syncResult').textContent='Error: '+e.message}
+    finally{btn.disabled=false;btn.textContent='Pull Data from Render'}
+}
 
 // Auto-login if session exists
 if(sessionStorage.getItem('admin')){
