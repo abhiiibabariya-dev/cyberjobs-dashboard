@@ -5,7 +5,6 @@ __pycache__/
 .env
 config.json
 resumes/
-dashboard_jobs.json
 dashboard_emailed.json
 application_log.json
 users.json
