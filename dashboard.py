@@ -3144,12 +3144,15 @@ def api_login():
         if not verify_password(password, user["password_hash"]):
             return jsonify({"success": False, "message": "Incorrect password."})
     else:
-        # Legacy user without password — force them to set one via reset
-        return jsonify({
-            "success": False,
-            "message": "Your account needs a password. Please use 'Forgot Password' to set one.",
-            "needs_password_setup": True,
-        })
+        # Legacy user without password — let them set one now
+        if not password:
+            return jsonify({"success": False, "message": "Please enter a password to secure your account.", "needs_password": True})
+        pwd_err = validate_password(password)
+        if pwd_err:
+            return jsonify({"success": False, "message": pwd_err})
+        user["password_hash"] = hash_password(password)
+        save_users()
+        log.info(f"[Auth] Legacy user {found_uid} set password on login")
 
     # Check if 2FA/MFA is enabled for this user
     if user.get("mfa_enabled"):
