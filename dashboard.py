@@ -101,7 +101,6 @@ ALL_JOBS = []
 USERS = {}  # {user_id: {name, email, resume_path, applied_jobs: []}}
 SCAN_LOCK = threading.Lock()
 STATS = {"emails_sent": 0, "applied": 0, "new_today": 0}
-OTP_STORE = {}  # {user_id: {"otp": "123456", "expires": datetime, "verified": False}}
 SESSIONS = {}  # {session_token: {"user_id": ..., "logged_in_at": ...}}
 RESET_TOKENS = {}  # {token: {"user_id": ..., "expires": datetime}}
 PUBLIC_URL = None
@@ -116,11 +115,6 @@ def validate_password(password):
     if not re.search(r'[^A-Za-z0-9]', password):
         return "Password must contain at least 1 symbol (!@#$%^&*...)."
     return None
-
-
-def generate_otp():
-    """Generate a 6-digit OTP."""
-    return ''.join(random.choices(string.digits, k=6))
 
 
 def generate_session_token():
@@ -141,82 +135,6 @@ def verify_password(password, hashed):
         return False
 
 
-def send_otp_email(to_email, otp, user_name="User"):
-    """Send OTP via Brevo transactional email."""
-    api_key = CONFIG.get("brevo", {}).get("api_key", "")
-    if not api_key or api_key == "YOUR_BREVO_API_KEY":
-        log.warning("[OTP] No Brevo API key configured")
-        return False
-
-    html_body = f"""<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px">
-<div style="text-align:center;padding:20px;background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:12px 12px 0 0">
-<h1 style="color:#fff;margin:0;font-size:22px">CyberJobs</h1>
-<p style="color:rgba(255,255,255,.8);margin:4px 0 0;font-size:13px">SOC Job Hunter - Verification</p>
-</div>
-<div style="background:#fff;border:1px solid #e2e4e9;border-top:none;border-radius:0 0 12px 12px;padding:24px">
-<p style="color:#333;font-size:15px">Hello <strong>{user_name}</strong>,</p>
-<p style="color:#555;font-size:14px">Your verification code is:</p>
-<div style="text-align:center;margin:20px 0">
-<span style="font-size:36px;font-weight:800;letter-spacing:8px;color:#2563eb;background:#eff6ff;padding:12px 24px;border-radius:10px;border:2px solid #bfdbfe">{otp}</span>
-</div>
-<p style="color:#888;font-size:12px;text-align:center">This code expires in <strong>10 minutes</strong>. Do not share it.</p>
-</div>
-</div>"""
-
-    payload = {
-        "sender": {"name": "CyberJobs", "email": CONFIG.get("applicant", {}).get("email", "noreply@cyberjobs.app")},
-        "to": [{"email": to_email, "name": user_name}],
-        "subject": f"Your CyberJobs Verification Code: {otp}",
-        "htmlContent": html_body,
-    }
-    try:
-        resp = requests.post("https://api.brevo.com/v3/smtp/email",
-                             headers={"api-key": api_key, "Content-Type": "application/json"},
-                             json=payload, timeout=30)
-        if resp.status_code in (200, 201):
-            log.info(f"[OTP] Email sent to {to_email}")
-            return True
-        else:
-            log.warning(f"[OTP] Email failed: {resp.status_code} {resp.text[:200]}")
-    except Exception as e:
-        log.error(f"[OTP] Email error: {e}")
-    return False
-
-
-def send_otp_sms(phone, otp, user_name="User"):
-    """Send OTP via Brevo transactional SMS."""
-    api_key = CONFIG.get("brevo", {}).get("api_key", "")
-    if not api_key or api_key == "YOUR_BREVO_API_KEY":
-        return False
-
-    # Format phone: ensure +91 prefix for Indian numbers
-    phone = phone.strip().replace(" ", "").replace("-", "")
-    if not phone.startswith("+"):
-        if phone.startswith("91") and len(phone) == 12:
-            phone = "+" + phone
-        elif len(phone) == 10:
-            phone = "+91" + phone
-        else:
-            phone = "+91" + phone
-
-    payload = {
-        "type": "transactional",
-        "unicodeEnabled": True,
-        "sender": "CyberJobs",
-        "recipient": phone,
-        "content": f"Your CyberJobs verification code is: {otp}. Valid for 10 minutes. Do not share this code.",
-    }
-    try:
-        resp = requests.post("https://api.brevo.com/v3/transactionalSMS/sms",
-                             headers={"api-key": api_key, "Content-Type": "application/json"},
-                             json=payload, timeout=30)
-        if resp.status_code in (200, 201):
-            log.info(f"[OTP] SMS sent to {phone}")
-            return True
-        else:
-            log.warning(f"[OTP] SMS failed: {resp.status_code} {resp.text[:200]}")
-    except Exception as e:
-        log.error(f"[OTP] SMS error: {e}")
     return False
 
 
@@ -3038,94 +2956,11 @@ def api_register():
     })
 
 
-@app.route("/api/verify_otp", methods=["POST"])
-def api_verify_otp():
-    """Verify OTP for registration or login."""
-    data = request.json
-    user_id = data.get("user_id", "").strip()
-    otp_input = data.get("otp", "").strip()
-
-    if not user_id or not otp_input:
-        return jsonify({"success": False, "message": "User ID and OTP are required."})
-
-    otp_data = OTP_STORE.get(user_id)
-    if not otp_data:
-        return jsonify({"success": False, "message": "No pending verification. Please register again."})
-
-    if datetime.now() > otp_data["expires"]:
-        del OTP_STORE[user_id]
-        return jsonify({"success": False, "message": "OTP expired. Please register again."})
-
-    if otp_input != otp_data["otp"]:
-        return jsonify({"success": False, "message": "Invalid OTP. Please try again."})
-
-    # OTP verified — complete registration or login
-    otp_data["verified"] = True
-    pending = otp_data.get("pending_data")
-
-    if pending:
-        # New registration
-        USERS[user_id] = {
-            "name": pending["name"],
-            "email": pending["email"],
-            "phone": pending["phone"],
-            "password_hash": pending.get("password_hash", ""),
-            "resume_path": "",
-            "applied_jobs": USERS.get(user_id, {}).get("applied_jobs", []),
-            "profile": {
-                "linkedin": "",
-                "location": "",
-                "experience": "",
-                "skills": "",
-                "bio": "",
-            },
-            "mfa_enabled": False,
-            "verified": True,
-            "registered_at": datetime.now().isoformat(),
-        }
-        save_users()
-        log.info(f"[User] Registered & verified: {pending['name']} ({pending['email']}) as {user_id}")
-
-    # Create session
-    token = generate_session_token()
-    SESSIONS[token] = {"user_id": user_id, "logged_in_at": datetime.now().isoformat()}
-
-    del OTP_STORE[user_id]
-    return jsonify({
-        "success": True, "user_id": user_id, "session_token": token,
-        "message": f"Verified! Welcome {USERS[user_id]['name']}!"
-    })
-
-
-@app.route("/api/resend_otp", methods=["POST"])
-def api_resend_otp():
-    """Resend OTP to user's email and phone."""
-    data = request.json
-    user_id = data.get("user_id", "").strip()
-
-    otp_data = OTP_STORE.get(user_id)
-    if not otp_data:
-        return jsonify({"success": False, "message": "No pending verification found."})
-
-    # Generate fresh OTP
-    otp = generate_otp()
-    otp_data["otp"] = otp
-    otp_data["expires"] = datetime.now() + timedelta(minutes=10)
-
-    pending = otp_data.get("pending_data", {})
-    email = pending.get("email") or USERS.get(user_id, {}).get("email", "")
-    phone = pending.get("phone") or USERS.get(user_id, {}).get("phone", "")
-    name = pending.get("name") or USERS.get(user_id, {}).get("name", "User")
-
-    email_sent = send_otp_email(email, otp, name) if email else False
-    sms_sent = send_otp_sms(phone, otp, name) if phone else False
-
-    return jsonify({"success": True, "message": "New OTP sent!"})
 
 
 @app.route("/api/login", methods=["POST"])
 def api_login():
-    """Login with email + password. Then 2FA OTP is sent."""
+    """Login with email + password."""
     data = request.json
     email = data.get("email", "").strip()
     password = data.get("password", "")
@@ -3165,41 +3000,15 @@ def api_login():
         save_users()
         log.info(f"[Auth] Legacy user {found_uid} set password on login")
 
-    # Check if 2FA/MFA is enabled for this user
-    if user.get("mfa_enabled"):
-        # Send 2FA OTP
-        otp = generate_otp()
-        OTP_STORE[found_uid] = {
-            "otp": otp,
-            "expires": datetime.now() + timedelta(minutes=10),
-            "verified": False,
-        }
-
-        email_sent = send_otp_email(email, otp, user["name"])
-        phone = user.get("phone", "")
-        sms_sent = send_otp_sms(phone, otp, user["name"]) if phone else False
-
-        channels = []
-        if email_sent:
-            channels.append(email)
-        if sms_sent:
-            masked_phone = phone[:3] + "****" + phone[-3:] if len(phone) > 6 else phone
-            channels.append(masked_phone)
-
-        return jsonify({
-            "success": True, "user_id": found_uid, "otp_required": True,
-            "message": f"2FA code sent to {' & '.join(channels) if channels else 'your registered contacts'}.",
-        })
-    else:
-        # No 2FA — log in directly
-        token = generate_session_token()
-        SESSIONS[token] = {"user_id": found_uid, "logged_in_at": datetime.now().isoformat()}
-        log.info(f"[Auth] Direct login (no 2FA): {found_uid}")
-        return jsonify({
-            "success": True, "user_id": found_uid, "otp_required": False,
-            "session_token": token,
-            "message": "Login successful!",
-        })
+    # Log in directly — no OTP
+    token = generate_session_token()
+    SESSIONS[token] = {"user_id": found_uid, "logged_in_at": datetime.now().isoformat()}
+    log.info(f"[Auth] Login: {found_uid}")
+    return jsonify({
+        "success": True, "user_id": found_uid, "otp_required": False,
+        "session_token": token,
+        "message": "Login successful!",
+    })
 
 
 @app.route("/api/reset_password", methods=["POST"])
@@ -3327,22 +3136,6 @@ def api_reset_password_confirm():
 
     return jsonify({"success": True, "message": "Password updated successfully! You can now login."})
 
-
-@app.route("/api/toggle_mfa", methods=["POST"])
-def api_toggle_mfa():
-    """Enable or disable 2FA/MFA for a user."""
-    data = request.json
-    user_id = data.get("user_id", "").strip()
-    enable = data.get("enable", False)
-
-    if user_id not in USERS:
-        return jsonify({"success": False, "message": "User not found."})
-
-    USERS[user_id]["mfa_enabled"] = bool(enable)
-    save_users()
-    status = "enabled" if enable else "disabled"
-    log.info(f"[Auth] 2FA {status} for {user_id}")
-    return jsonify({"success": True, "mfa_enabled": bool(enable), "message": f"Two-Factor Authentication {status}."})
 
 
 # Reset password page HTML template
@@ -4343,7 +4136,7 @@ tr:hover td{background:#1e293b}
         <div class="scroll-table">
             <table>
                 <thead><tr>
-                    <th>User ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Password</th><th>2FA</th><th>Verified</th><th>Resume</th><th>Applied</th><th>Registered</th><th>Actions</th>
+                    <th>User ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Password</th><th>Verified</th><th>Resume</th><th>Applied</th><th>Registered</th><th>Actions</th>
                 </tr></thead>
                 <tbody id="usersBody"></tbody>
             </table>
@@ -4427,8 +4220,6 @@ tr:hover td{background:#1e293b}
         <input type="email" id="editEmail">
         <label>Phone</label>
         <input type="tel" id="editPhone">
-        <label>2FA / MFA</label>
-        <select id="editMfa"><option value="false">Disabled</option><option value="true">Enabled</option></select>
         <label>Verified</label>
         <select id="editVerified"><option value="false">No</option><option value="true">Yes</option></select>
         <div class="btn-row">
@@ -4556,7 +4347,6 @@ function renderUsers(){
             <td style="font-size:12px">${u.email}</td>
             <td style="font-size:12px">${u.phone||'-'}</td>
             <td>${u.has_password?'<span class="badge badge-green">Set</span>':'<span class="badge badge-red">None</span>'}</td>
-            <td>${u.mfa_enabled?'<span class="badge badge-blue">ON</span>':'<span class="badge badge-yellow">OFF</span>'}</td>
             <td>${u.verified?'<span class="badge badge-green">Yes</span>':'<span class="badge badge-red">No</span>'}</td>
             <td>${u.resume?'<span class="badge badge-green">Yes</span>':'<span class="badge badge-red">No</span>'}</td>
             <td style="text-align:center">${u.applied_count}</td>
@@ -4571,7 +4361,7 @@ function renderUsers(){
             </td>
         </tr>`;
     }).join('');
-    document.getElementById('usersBody').innerHTML=rows||'<tr><td colspan="11" class="empty">No users found</td></tr>';
+    document.getElementById('usersBody').innerHTML=rows||'<tr><td colspan="10" class="empty">No users found</td></tr>';
 }
 
 function filterUsers(q){
@@ -4627,7 +4417,6 @@ function openEdit(uid){
     document.getElementById('editName').value=u.name;
     document.getElementById('editEmail').value=u.email;
     document.getElementById('editPhone').value=u.phone||'';
-    document.getElementById('editMfa').value=u.mfa_enabled?'true':'false';
     document.getElementById('editVerified').value=u.verified?'true':'false';
     openModal('editModal');
 }
@@ -4639,7 +4428,6 @@ async function saveUserEdit(){
         name:document.getElementById('editName').value,
         email:document.getElementById('editEmail').value,
         phone:document.getElementById('editPhone').value,
-        mfa_enabled:document.getElementById('editMfa').value==='true',
         verified:document.getElementById('editVerified').value==='true',
     };
     const r=await fetch('/api/admin/user_update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
