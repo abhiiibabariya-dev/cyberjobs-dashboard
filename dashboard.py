@@ -63,7 +63,7 @@ log = logging.getLogger("Dashboard")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # DATA_DIR allows hosts with persistent volumes (Fly.io) to keep user data
-# across container restarts. Falls back to script dir for local/Render free tier.
+# across container restarts. Falls back to script dir for local runs.
 DATA_DIR = os.environ.get("DATA_DIR") or SCRIPT_DIR
 RESUMES_DIR = os.path.join(DATA_DIR, "resumes")
 try:
@@ -97,7 +97,7 @@ if os.path.exists(CONFIG_PATH):
     with open(CONFIG_PATH, "r") as f:
         CONFIG = json.load(f)
 else:
-    # Default config for cloud deployment (Render, etc.)
+    # Default config for cloud deployment
     CONFIG = {
         "search_keywords": ["SOC Analyst", "Cyber Security Analyst", "Security Analyst"],
         "experience_range": {"min_years": 0, "max_years": 5},
@@ -2516,7 +2516,7 @@ def index():
 
 @app.route("/api/health")
 def api_health():
-    """Lightweight liveness probe for Render/Fly.io health checks."""
+    """Lightweight liveness probe for Fly.io / Railway health checks."""
     return jsonify({
         "status": "ok",
         "jobs": len(ALL_JOBS),
@@ -3959,7 +3959,7 @@ def admin_clear_email_log():
 
 @app.route("/api/admin/sync_push", methods=["POST"])
 def admin_sync_push():
-    """Receive jobs and users data from another instance (e.g. Codespaces -> Render).
+    """Receive jobs and users data from another instance (e.g. Codespaces -> production).
     This allows instant data sync without redeploying."""
     global ALL_JOBS
     data = request.json or {}
@@ -4245,12 +4245,12 @@ tr:hover td{background:#1e293b}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
             <div class="stat-card" style="text-align:left">
                 <h3 style="font-size:14px;color:#f1f5f9;margin-bottom:12px">Live Sync</h3>
-                <p style="font-size:11px;color:#64748b;margin-bottom:10px">Push jobs & users from this instance to another (e.g. Codespaces to Render) instantly — no redeploy needed.</p>
+                <p style="font-size:11px;color:#64748b;margin-bottom:10px">Push jobs &amp; users from this instance to another (e.g. local dev to production) instantly — no redeploy needed.</p>
                 <label style="font-size:11px;color:#94a3b8;font-weight:600">Target URL</label>
-                <input type="text" id="syncTargetUrl" value="https://cyberjobs-4mki.onrender.com" style="width:100%;padding:8px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;font-size:12px;margin:4px 0 8px;outline:none">
+                <input type="text" id="syncTargetUrl" placeholder="https://your-app.fly.dev" value="" style="width:100%;padding:8px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;font-size:12px;margin:4px 0 8px;outline:none">
                 <div style="display:flex;flex-direction:column;gap:8px">
-                    <button class="btn btn-green" style="width:100%;padding:12px" onclick="syncPush()" id="syncPushBtn">Sync Data to Render</button>
-                    <button class="btn btn-blue" style="width:100%;padding:12px" onclick="syncPull()" id="syncPullBtn">Pull Data from Render</button>
+                    <button class="btn btn-green" style="width:100%;padding:12px" onclick="syncPush()" id="syncPushBtn">Push data to target</button>
+                    <button class="btn btn-blue" style="width:100%;padding:12px" onclick="syncPull()" id="syncPullBtn">Pull data from target</button>
                 </div>
                 <div id="syncResult" style="font-size:11px;color:#94a3b8;margin-top:8px"></div>
             </div>
@@ -4701,7 +4701,7 @@ async function syncPush(){
         toast(pd.message||'Sync complete!',pd.success?'success':'error');
         document.getElementById('syncResult').textContent=pd.success?'Sync successful! Data is live on '+target:'Sync failed: '+pd.message;
     }catch(e){toast('Sync failed: '+e.message,'error');document.getElementById('syncResult').textContent='Error: '+e.message}
-    finally{btn.disabled=false;btn.textContent='Sync Data to Render'}
+    finally{btn.disabled=false;btn.textContent='Push data to target'}
 }
 
 async function syncPull(){
@@ -4722,7 +4722,7 @@ async function syncPull(){
         document.getElementById('syncResult').textContent=ld.success?'Pull successful! Local data updated.':'Pull failed: '+ld.message;
         if(ld.success)refreshData();
     }catch(e){toast('Pull failed: '+e.message,'error');document.getElementById('syncResult').textContent='Error: '+e.message}
-    finally{btn.disabled=false;btn.textContent='Pull Data from Render'}
+    finally{btn.disabled=false;btn.textContent='Pull data from target'}
 }
 
 // Auto-login if session exists
