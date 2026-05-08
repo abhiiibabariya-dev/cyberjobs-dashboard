@@ -21,94 +21,198 @@
       <span class="brand__sub">soc analyst board</span>
     </a>
     <nav class="top__nav">
-      <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener">source</a>
-      <a href="#about">about</a>
+      <button class="nav-btn" data-view="list" id="navList">Browse</button>
+      <button class="nav-btn" data-view="pipeline" id="navPipeline">
+        Pipeline
+        <span class="nav-btn__count" id="pipelineCount">0</span>
+      </button>
+      <button class="nav-btn" id="openHelp" title="Keyboard shortcuts (?)">?</button>
+      <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener" class="nav-link">source</a>
     </nav>
   </div>
 </header>
 
 <main>
-  <section class="hero container">
-    <h1>Security roles, surfaced from the noise.</h1>
-    <p class="hero__lead">A snapshot of SOC analyst, security engineer, and cyber operations roles &mdash; collected from LinkedIn by an open-source scanner.</p>
-    <div class="stale-banner" id="staleBanner" hidden></div>
-  </section>
 
-  <section class="stats container" aria-label="Dataset summary">
-    <div class="stat">
-      <div class="stat__value" id="statJobs">&mdash;</div>
-      <div class="stat__label">total roles</div>
+  <!-- ============== LIST VIEW ============== -->
+  <section class="view view--list" id="viewList">
+    <div class="hero container">
+      <h1>Security roles, surfaced from the noise.</h1>
+      <p class="hero__lead">A snapshot of SOC analyst, security engineer, and cyber operations roles &mdash; collected from LinkedIn by an open-source scanner.</p>
+      <div class="stale-banner" id="staleBanner" hidden></div>
+      <div class="diff-banner" id="diffBanner" hidden></div>
     </div>
-    <div class="stat">
-      <div class="stat__value" id="statCompanies">&mdash;</div>
-      <div class="stat__label">companies</div>
-    </div>
-    <div class="stat">
-      <div class="stat__value" id="statLocations">&mdash;</div>
-      <div class="stat__label">locations</div>
-    </div>
-    <div class="stat">
-      <div class="stat__value" id="statUpdated">&mdash;</div>
-      <div class="stat__label">last refreshed</div>
-    </div>
-  </section>
 
-  <section class="board container">
-    <div class="board__controls">
-      <label class="search">
-        <span class="search__icon" aria-hidden="true">⌕</span>
-        <input id="search" type="search" placeholder="Filter by title, company, or location… ( / )" autocomplete="off">
-      </label>
-      <button id="toggleNew" class="toggle-new" type="button" aria-pressed="false" hidden>
-        <span class="toggle-new__dot" aria-hidden="true"></span>
-        <span>New only</span>
-        <span class="toggle-new__count">0</span>
-      </button>
-      <div class="board__meta">
-        <select id="sort" aria-label="Sort">
-          <option value="recent">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="company">Company A–Z</option>
-        </select>
-        <span class="count" id="count">0 of 0</span>
+    <section class="stats container" aria-label="Dataset summary">
+      <div class="stat">
+        <div class="stat__value" id="statJobs">&mdash;</div>
+        <div class="stat__label">total roles</div>
       </div>
-    </div>
+      <div class="stat">
+        <div class="stat__value" id="statCompanies">&mdash;</div>
+        <div class="stat__label">companies</div>
+      </div>
+      <div class="stat">
+        <div class="stat__value" id="statSaved">0</div>
+        <div class="stat__label">saved</div>
+      </div>
+      <div class="stat">
+        <div class="stat__value" id="statApplied">0</div>
+        <div class="stat__label">applied</div>
+      </div>
+      <div class="stat">
+        <div class="stat__value" id="statUpdated">&mdash;</div>
+        <div class="stat__label">last refreshed</div>
+      </div>
+    </section>
 
-    <ol class="jobs" id="jobs" aria-live="polite"></ol>
+    <section class="board container">
+      <div class="board__controls">
+        <label class="search">
+          <span class="search__icon" aria-hidden="true">⌕</span>
+          <input id="search" type="search"
+                 placeholder='Search — supports "phrases", -exclude, AND/OR. Press / to focus.'
+                 autocomplete="off" spellcheck="false">
+        </label>
+        <button id="toggleNew" class="toggle-new" type="button" aria-pressed="false" hidden>
+          <span class="toggle-new__dot" aria-hidden="true"></span>
+          <span>New only</span>
+          <span class="toggle-new__count">0</span>
+        </button>
+      </div>
 
-    <div class="empty" id="empty" hidden>
-      <p>No roles match that filter.</p>
-    </div>
+      <div class="chips" id="chipBar">
+        <details class="chip-group">
+          <summary class="chip">Date <span class="chip__caret">▾</span></summary>
+          <div class="chip-menu">
+            <button class="chip-opt" data-filter="date" data-value="all">Any time</button>
+            <button class="chip-opt" data-filter="date" data-value="7">Last 7 days</button>
+            <button class="chip-opt" data-filter="date" data-value="14">Last 14 days</button>
+            <button class="chip-opt" data-filter="date" data-value="30">Last 30 days</button>
+            <button class="chip-opt" data-filter="date" data-value="90">Last 90 days</button>
+          </div>
+        </details>
+        <details class="chip-group">
+          <summary class="chip">Experience <span class="chip__caret">▾</span></summary>
+          <div class="chip-menu">
+            <button class="chip-opt" data-filter="level" data-value="all">Any level</button>
+            <button class="chip-opt" data-filter="level" data-value="entry">Entry / Junior</button>
+            <button class="chip-opt" data-filter="level" data-value="mid">Mid (L1 / L2)</button>
+            <button class="chip-opt" data-filter="level" data-value="senior">Senior / L3</button>
+            <button class="chip-opt" data-filter="level" data-value="lead">Lead / Principal</button>
+          </div>
+        </details>
+        <details class="chip-group">
+          <summary class="chip">Location <span class="chip__caret">▾</span></summary>
+          <div class="chip-menu">
+            <button class="chip-opt" data-filter="locType" data-value="all">Any location</button>
+            <button class="chip-opt" data-filter="locType" data-value="remote">Remote</button>
+            <button class="chip-opt" data-filter="locType" data-value="onsite">Onsite / Hybrid</button>
+          </div>
+        </details>
+        <details class="chip-group" id="chipPlatform">
+          <summary class="chip">Platform <span class="chip__caret">▾</span></summary>
+          <div class="chip-menu" id="platformMenu"></div>
+        </details>
+        <button class="chip chip--ghost" id="clearFilters" hidden>Clear filters</button>
+        <div class="board__meta">
+          <select id="sort" aria-label="Sort">
+            <option value="recent">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="company">Company A–Z</option>
+            <option value="match">Resume match (best)</option>
+          </select>
+          <button class="density" id="density" type="button" title="Toggle density">▤▤</button>
+          <button class="density" id="exportCsv" type="button" title="Export CSV">CSV</button>
+          <span class="count" id="count">0 of 0</span>
+        </div>
+      </div>
 
-    <div class="loadmore" id="loadmoreWrap" hidden>
-      <button id="loadmore" type="button">Show more</button>
-    </div>
+      <ol class="jobs" id="jobs" aria-live="polite"></ol>
+
+      <div class="empty" id="empty" hidden>
+        <p>No roles match. Try widening the filters or clearing them.</p>
+      </div>
+
+      <div class="loadmore" id="loadmoreWrap" hidden>
+        <button id="loadmore" type="button">Show more</button>
+      </div>
+    </section>
+
+    <section class="resume container" id="resumeSection">
+      <details>
+        <summary>
+          <span class="resume__title">Resume match</span>
+          <span class="resume__hint">Paste your resume to score every role by keyword overlap.</span>
+        </summary>
+        <div class="resume__body">
+          <textarea id="resumeText" placeholder="Paste resume text here. Stays in your browser only — never sent anywhere." spellcheck="false"></textarea>
+          <div class="resume__row">
+            <button id="scoreResume" type="button" class="btn-primary">Score &amp; sort</button>
+            <button id="clearResume" type="button" class="btn-ghost">Clear</button>
+            <span class="resume__status" id="resumeStatus"></span>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="about container" id="about">
+      <h2>About this snapshot</h2>
+      <p>
+        The data comes from <code>dashboard_jobs.json</code>, produced by
+        <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener"><code>cyberjobs-dashboard</code></a>
+        &mdash; a Python scanner that crawls LinkedIn for SOC and security roles. This page is a
+        static viewer hosted on GitHub Pages. Saved jobs, applied state, hidden listings, and
+        resume text live only in <code>localStorage</code> on this browser &mdash; nothing is sent
+        to any server.
+      </p>
+    </section>
   </section>
 
-  <section class="about container" id="about">
-    <h2>About this snapshot</h2>
-    <p>
-      The data on this page comes from <code>dashboard_jobs.json</code>, a file produced by
-      <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener"><code>cyberjobs-dashboard</code></a>
-      &mdash; a Python scanner that crawls LinkedIn for SOC and security roles. This page is a
-      static viewer hosted on GitHub Pages: it can display whatever data is in that JSON file at
-      build time, but it cannot run live scans, accept logins, or apply on your behalf.
-      Those features live in the Flask app in the same repository and require running it locally.
-    </p>
-    <p class="muted">
-      Updates to this page require pushing a new <code>dashboard_jobs.json</code> to the
-      <code>gh-pages</code> branch. Listings shown here are not endorsements; verify any role
-      against its source link before applying.
-    </p>
+  <!-- ============== PIPELINE VIEW ============== -->
+  <section class="view view--pipeline container" id="viewPipeline" hidden>
+    <header class="pipeline__head">
+      <h2>Application pipeline</h2>
+      <p class="muted">Drag is not implemented &mdash; use the buttons on each card. State persists in this browser.</p>
+    </header>
+    <div class="kanban" id="kanban"></div>
   </section>
+
 </main>
 
 <footer class="bottom">
   <div class="container bottom__inner">
-    <span>Built as a static viewer for the <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener">cyberjobs-dashboard</a> project.</span>
+    <span>Static viewer for <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener">cyberjobs-dashboard</a>.</span>
     <span class="muted">No tracking. No login. No backend.</span>
   </div>
 </footer>
+
+<!-- ============== HELP DIALOG ============== -->
+<dialog id="helpDialog" class="help">
+  <form method="dialog">
+    <h3>Keyboard shortcuts</h3>
+    <ul class="help__keys">
+      <li><kbd>/</kbd> Focus search</li>
+      <li><kbd>j</kbd> / <kbd>k</kbd> Next / previous job</li>
+      <li><kbd>Enter</kbd> Open focused job</li>
+      <li><kbd>b</kbd> Toggle save (bookmark)</li>
+      <li><kbd>a</kbd> Cycle apply state (none → applied → interviewing → offer)</li>
+      <li><kbd>h</kbd> Hide focused job</li>
+      <li><kbd>g</kbd> then <kbd>l</kbd> Browse view</li>
+      <li><kbd>g</kbd> then <kbd>p</kbd> Pipeline view</li>
+      <li><kbd>?</kbd> This dialog</li>
+      <li><kbd>Esc</kbd> Close dialog / clear search</li>
+    </ul>
+    <h3>Search syntax</h3>
+    <ul class="help__syntax">
+      <li><code>soc analyst</code> &mdash; both terms must appear</li>
+      <li><code>siem OR splunk</code> &mdash; either term</li>
+      <li><code>soc -lead -intern</code> &mdash; exclude these</li>
+      <li><code>"incident response"</code> &mdash; exact phrase</li>
+    </ul>
+    <button type="submit" class="btn-primary">Close</button>
+  </form>
+</dialog>
 
 <script src="assets/app.js"></script>
 </body>
