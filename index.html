@@ -289,6 +289,34 @@
   </div>
 </dialog>
 
+<!-- ============== LOGIN DIALOG ============== -->
+<dialog id="loginDialog" class="auth-dialog">
+  <div class="auth-dialog__inner">
+    <button class="detail__close" id="loginClose" type="button" aria-label="Close">×</button>
+    <h3 class="auth-dialog__title" id="loginTitle">Log in to apply</h3>
+    <p class="auth-dialog__sub">Applying via cyberjobs sends your CV to the recruiter and emails you a confirmation. Backend at <code id="loginBackendUrl">—</code>.</p>
+    <form id="loginForm" class="auth-form" method="dialog">
+      <label class="auth-field">
+        <span>Email</span>
+        <input type="email" id="loginEmail" required autocomplete="email">
+      </label>
+      <label class="auth-field">
+        <span>Password</span>
+        <input type="password" id="loginPassword" required autocomplete="current-password">
+      </label>
+      <div class="auth-error" id="loginError" hidden></div>
+      <div class="auth-actions">
+        <button type="submit" class="btn-primary" id="loginSubmit">Log in</button>
+        <button type="button" class="btn-ghost" id="openSignup">No account? Sign up →</button>
+      </div>
+      <p class="auth-foot muted">We never store your password locally — only the session token issued by the backend. Log out anytime from the header.</p>
+    </form>
+  </div>
+</dialog>
+
+<!-- ============== APPLY TOAST ============== -->
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
 <!-- ============== HELP DIALOG ============== -->
 <dialog id="helpDialog" class="help">
   <form method="dialog">

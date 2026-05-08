@@ -147,6 +147,17 @@
     deployBannerClose: $('deployBannerClose'),
     apiBaseInput: $('apiBaseInput'),
     apiBaseSet: $('apiBaseSet'),
+    loginDialog: $('loginDialog'),
+    loginClose: $('loginClose'),
+    loginTitle: $('loginTitle'),
+    loginBackendUrl: $('loginBackendUrl'),
+    loginForm: $('loginForm'),
+    loginEmail: $('loginEmail'),
+    loginPassword: $('loginPassword'),
+    loginError: $('loginError'),
+    loginSubmit: $('loginSubmit'),
+    openSignup: $('openSignup'),
+    toastStack: $('toastStack'),
     resumeText: $('resumeText'),
     scoreResume: $('scoreResume'),
     clearResume: $('clearResume'),
@@ -400,6 +411,16 @@
     const order = ['applied', 'interviewing', 'offer'];
     const idx = order.indexOf(cur);
     const next = idx === -1 ? 'applied' : (idx >= order.length - 1 ? null : order[idx + 1]);
+    // First-time transition into 'applied' triggers the real backend apply
+    // (sends recruiter email + applicant confirmation) when a backend is
+    // connected. setPipeline will be called by applyJobOnBackend on success.
+    if (!cur && next === 'applied' && API_BASE_URL) {
+      const j = findJobById(id);
+      if (j) {
+        applyJobOnBackend(j);
+        return;
+      }
+    }
     setPipeline(id, next);
   }
 
@@ -1362,6 +1383,48 @@
       els.detailFollowState.dataset.level = s.level;
     });
 
+    // Auth bar: login / logout
+    if (els.loginLink) {
+      els.loginLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (els.loginLink.dataset.action === 'logout') logout();
+        else openLoginDialog();
+      });
+    }
+    if (els.signupLink) {
+      els.signupLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!API_BASE_URL) {
+          toast('Connect a backend first.', 'info');
+          return;
+        }
+        // Signup needs a CV upload step which doesn't fit in a small inline modal.
+        // Open the backend's home page in a new tab where the full registration flow lives.
+        window.open(API_BASE_URL + '/#register', '_blank', 'noopener');
+      });
+    }
+
+    // Login dialog events
+    if (els.loginClose) els.loginClose.addEventListener('click', () => closeLoginDialog());
+    if (els.loginDialog) {
+      els.loginDialog.addEventListener('click', (e) => {
+        if (e.target === els.loginDialog) closeLoginDialog();
+      });
+      els.loginDialog.addEventListener('close', () => { /* nothing */ });
+    }
+    if (els.loginForm) {
+      els.loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        submitLogin();
+      });
+    }
+    if (els.openSignup) {
+      els.openSignup.addEventListener('click', () => {
+        if (!API_BASE_URL) return;
+        window.open(API_BASE_URL + '/#register', '_blank', 'noopener');
+      });
+    }
+
     // Deploy banner
     if (els.deployBanner) {
       const dismissed = Storage.get('deployBannerDismissed', false);
@@ -1428,6 +1491,178 @@
     document.addEventListener('keydown', handleKey);
   }
 
+  // ─── Session ───────────────────────────────────────────────────────
+  function getSession() {
+    return Storage.get('session', null);
+  }
+  function setSession(s) {
+    if (s) Storage.set('session', s);
+    else Storage.remove('session');
+    updateAuthBarUi();
+  }
+  function isLoggedIn() {
+    const s = getSession();
+    return !!(s && s.token);
+  }
+
+  // ─── Toasts ────────────────────────────────────────────────────────
+  function toast(message, kind) {
+    if (!els.toastStack) { console.log('[toast]', message); return; }
+    const node = document.createElement('div');
+    node.className = 'toast' + (kind ? ' toast--' + kind : '');
+    node.textContent = message;
+    els.toastStack.appendChild(node);
+    setTimeout(() => { node.classList.add('toast--out'); }, 4500);
+    setTimeout(() => node.remove(), 5200);
+  }
+
+  // ─── Apply via backend ────────────────────────────────────────────
+  async function applyJobOnBackend(job) {
+    const session = getSession();
+    if (!API_BASE_URL) {
+      toast('Auto-apply needs the backend deployed. See the deploy banner above.', 'info');
+      return false;
+    }
+    if (!session || !session.token) {
+      pendingApplyJobId = job._id;
+      openLoginDialog();
+      return false;
+    }
+    if (session.needsResume) {
+      toast('Upload your CV on the backend before applying — opening the dashboard.', 'warn');
+      window.open(API_BASE_URL + '/', '_blank', 'noopener');
+      return false;
+    }
+    const idx = state.jobs.indexOf(job);
+    if (idx === -1) { toast('Job not found in current snapshot.', 'error'); return false; }
+
+    toast(`Applying to ${job.company || 'role'} via backend…`, 'info');
+    try {
+      const res = await fetch(API_BASE_URL + '/api/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_token: session.token, job_index: idx }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 || data.needs_login) {
+        setSession(null);
+        toast('Session expired — please log in again.', 'warn');
+        pendingApplyJobId = job._id;
+        openLoginDialog();
+        return false;
+      }
+      if (data.needs_resume) {
+        toast('Upload your CV on the backend, then try again.', 'warn');
+        window.open(API_BASE_URL + '/', '_blank', 'noopener');
+        return false;
+      }
+      if (!data.success) {
+        toast(data.message || 'Apply failed.', 'error');
+        return false;
+      }
+      toast(data.message || `Applying to ${job.company} — confirmation will arrive by email.`, 'success');
+      // Auto-mark applied in local pipeline
+      setPipeline(job._id, 'applied');
+      return true;
+    } catch (err) {
+      toast('Apply request failed: ' + err.message, 'error');
+      return false;
+    }
+  }
+
+  let pendingApplyJobId = null;
+
+  // ─── Login dialog ──────────────────────────────────────────────────
+  function openLoginDialog() {
+    if (!els.loginDialog) return;
+    if (!API_BASE_URL) {
+      toast('Connect your deployed backend first (deploy banner above).', 'info');
+      return;
+    }
+    if (els.loginBackendUrl) els.loginBackendUrl.textContent = API_BASE_URL;
+    if (els.loginEmail) els.loginEmail.value = '';
+    if (els.loginPassword) els.loginPassword.value = '';
+    if (els.loginError) { els.loginError.hidden = true; els.loginError.textContent = ''; }
+    if (typeof els.loginDialog.showModal === 'function') els.loginDialog.showModal();
+    else els.loginDialog.setAttribute('open', 'true');
+  }
+  function closeLoginDialog() {
+    if (!els.loginDialog) return;
+    if (typeof els.loginDialog.close === 'function') els.loginDialog.close();
+    else els.loginDialog.removeAttribute('open');
+  }
+
+  async function submitLogin() {
+    if (!API_BASE_URL) return;
+    const email = (els.loginEmail.value || '').trim();
+    const password = els.loginPassword.value || '';
+    if (!email || !password) {
+      els.loginError.textContent = 'Email and password required.';
+      els.loginError.hidden = false;
+      return;
+    }
+    els.loginSubmit.disabled = true;
+    els.loginSubmit.textContent = 'Logging in…';
+    els.loginError.hidden = true;
+    try {
+      const res = await fetch(API_BASE_URL + '/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!data.success) {
+        els.loginError.textContent = data.message || 'Login failed.';
+        els.loginError.hidden = false;
+        return;
+      }
+      setSession({
+        token: data.session_token,
+        userId: data.user_id,
+        userName: email.split('@')[0],
+        needsResume: !!data.needs_resume,
+      });
+      closeLoginDialog();
+      toast(data.message || 'Logged in.', 'success');
+      // If user had clicked Apply before logging in, retry
+      if (pendingApplyJobId) {
+        const j = findJobById(pendingApplyJobId);
+        pendingApplyJobId = null;
+        if (j) applyJobOnBackend(j);
+      }
+    } catch (err) {
+      els.loginError.textContent = 'Network error: ' + err.message;
+      els.loginError.hidden = false;
+    } finally {
+      els.loginSubmit.disabled = false;
+      els.loginSubmit.textContent = 'Log in';
+    }
+  }
+
+  function logout() {
+    setSession(null);
+    toast('Logged out.', 'info');
+  }
+
+  function updateAuthBarUi() {
+    if (!els.authBar) return;
+    const session = getSession();
+    if (!API_BASE_URL) {
+      els.authBar.hidden = true;
+      return;
+    }
+    els.authBar.hidden = false;
+    if (session && session.token) {
+      els.loginLink.textContent = 'Logout';
+      els.loginLink.dataset.action = 'logout';
+      els.signupLink.hidden = true;
+    } else {
+      els.loginLink.textContent = 'Login';
+      els.loginLink.dataset.action = 'login';
+      els.signupLink.hidden = false;
+    }
+  }
+
   // ─── Backend status probe ─────────────────────────────────────────
   async function probeBackend() {
     if (!API_BASE_URL) return { reachable: false };
@@ -1447,20 +1682,13 @@
   function applyBackendUI(state_) {
     if (!els.authBar) return;
     if (API_BASE_URL && state_?.reachable) {
-      els.authBar.hidden = false;
-      els.loginLink.href = API_BASE_URL + '/#login';
-      els.signupLink.href = API_BASE_URL + '/#register';
       els.backendStatus.dataset.state = 'live';
       els.backendStatus.textContent = `Live · ${state_.jobs} jobs · scan every ${state_.scan_interval_min || 30}m`;
     } else if (API_BASE_URL) {
-      els.authBar.hidden = false;
-      els.loginLink.href = API_BASE_URL + '/#login';
-      els.signupLink.href = API_BASE_URL + '/#register';
       els.backendStatus.dataset.state = 'down';
       els.backendStatus.textContent = `Backend unreachable · using snapshot`;
-    } else {
-      els.authBar.hidden = true;
     }
+    updateAuthBarUi();
   }
 
   // ─── Boot ──────────────────────────────────────────────────────────
@@ -1530,6 +1758,7 @@
   }
   applyDensity();
   showView(state.view);
+  updateAuthBarUi();
   bindEvents();
   load();
 })();

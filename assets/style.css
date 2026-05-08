@@ -877,6 +877,69 @@ body.compact .stat__value { font-size: 18px; }
 .kanban-card__followup[data-level="due"]     { color: var(--warn); border-color: rgba(251, 191, 36, 0.4); background: rgba(251, 191, 36, 0.08); }
 .kanban-card__followup[data-level="soon"]    { color: var(--info); border-color: rgba(96, 165, 250, 0.35); background: rgba(96, 165, 250, 0.08); }
 
+/* ─────────── Auth dialog (login) ─────────── */
+.auth-dialog {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  color: var(--text);
+  padding: 0;
+  max-width: 440px; width: 90%;
+  box-shadow: 0 16px 60px rgba(0,0,0,0.6);
+}
+.auth-dialog::backdrop { background: rgba(0,0,0,0.62); backdrop-filter: blur(2px); }
+.auth-dialog__inner { padding: 28px 30px; position: relative; }
+.auth-dialog__title { margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.auth-dialog__sub { margin: 0 0 18px; font-size: 13px; color: var(--text-dim); }
+.auth-dialog__sub code { font-size: 11.5px; background: var(--surface); }
+.auth-form { display: flex; flex-direction: column; gap: 12px; }
+.auth-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.auth-field input {
+  padding: 9px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit; font-size: 14px;
+  text-transform: none; letter-spacing: normal;
+}
+.auth-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94,234,212,0.12); }
+.auth-error {
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #fca5a5;
+  font-size: 12.5px;
+}
+.auth-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+.auth-foot { font-size: 11.5px; margin: 4px 0 0; }
+
+/* ─────────── Toasts ─────────── */
+.toast-stack {
+  position: fixed; bottom: 24px; right: 24px; z-index: 50;
+  display: flex; flex-direction: column; gap: 8px;
+  max-width: 380px;
+}
+.toast {
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13.5px;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.4);
+  opacity: 0; transform: translateY(8px);
+  animation: toast-in 0.18s ease-out forwards;
+}
+.toast--success { border-left-color: #86efac; }
+.toast--warn    { border-left-color: var(--warn); }
+.toast--error   { border-left-color: var(--danger); }
+.toast--info    { border-left-color: var(--info); }
+.toast--out { opacity: 0; transform: translateY(8px); transition: opacity 0.4s, transform 0.4s; }
+@keyframes toast-in { to { opacity: 1; transform: translateY(0); } }
+
 /* ─────────── Detail modal ─────────── */
 .detail {
   background: var(--bg-elevated);
