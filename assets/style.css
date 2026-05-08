@@ -198,6 +198,20 @@ kbd { color: var(--text); background: var(--surface-2); border-bottom-width: 2px
   letter-spacing: -0.02em; line-height: 1.15;
   margin: 0 0 12px; font-weight: 700;
 }
+.hero__motto {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin: 0 0 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  text-transform: lowercase;
+}
+.hero__motto-mark { color: var(--accent-dim); font-weight: 700; }
 .hero__lead { font-size: 16px; color: var(--text-dim); margin: 0 0 12px; max-width: 60ch; }
 
 .stale-banner, .diff-banner {
