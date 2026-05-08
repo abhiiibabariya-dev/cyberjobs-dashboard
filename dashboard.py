@@ -142,6 +142,50 @@ def generate_session_token():
     return hashlib.sha256(os.urandom(32)).hexdigest()
 
 
+def resolve_session(req):
+    """Look up the authenticated user from a request. Honors a session_token in
+    JSON body, query string, or Authorization: Bearer header. Returns
+    (user_id, user_dict) or (None, None) if the session is invalid/expired."""
+    try:
+        token = ""
+        if req.is_json:
+            payload = req.get_json(silent=True) or {}
+            token = (payload.get("session_token") or "").strip()
+        if not token:
+            token = (req.args.get("session_token", "") or "").strip()
+        if not token:
+            auth = req.headers.get("Authorization", "")
+            if auth.startswith("Bearer "):
+                token = auth[7:].strip()
+        if not token:
+            return None, None
+        sess = SESSIONS.get(token)
+        if not sess:
+            return None, None
+        uid = sess.get("user_id")
+        if uid not in USERS:
+            return None, None
+        return uid, USERS[uid]
+    except Exception:
+        return None, None
+
+
+def user_has_resume(user, user_id=None):
+    """True when the user has a parseable CV on disk."""
+    if not user:
+        return False
+    rp = user.get("resume_path", "")
+    if rp and os.path.exists(rp):
+        return True
+    if user_id:
+        try:
+            found = _find_user_resume(user_id)
+            return bool(found and os.path.exists(found))
+        except Exception:
+            return False
+    return False
+
+
 def hash_password(password):
     """Hash a password using bcrypt."""
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -1746,6 +1790,225 @@ def _find_user_resume(user_id):
     return ""
 
 
+# Catalog of cyber/SOC tools and certifications used to tailor recruiter emails
+# from the candidate's CV. Keep these lowercase for case-insensitive matching.
+_CYBER_SKILL_CATALOG = {
+    "SIEM": ["splunk", "qradar", "arcsight", "logrhythm", "microsoft sentinel",
+             "azure sentinel", "sumo logic", "elastic siem", "graylog", "wazuh"],
+    "EDR/XDR": ["crowdstrike", "sentinelone", "carbon black", "cylance",
+                "defender for endpoint", "cortex xdr", "fireeye", "trellix"],
+    "SOAR": ["soar", "phantom", "demisto", "swimlane", "tines"],
+    "Vulnerability": ["nessus", "qualys", "openvas", "burp suite", "metasploit",
+                      "owasp zap", "tenable", "rapid7"],
+    "Network": ["wireshark", "snort", "suricata", "zeek", "tcpdump", "nmap",
+                "fortigate", "palo alto", "checkpoint", "cisco asa", "panw"],
+    "Cloud": ["aws", "azure", "gcp", "kubernetes", "terraform", "cloudtrail",
+              "guardduty", "security hub"],
+    "Concepts": ["incident response", "threat hunting", "malware analysis",
+                 "forensics", "mitre att&ck", "kill chain", "use case", "playbook",
+                 "detection engineering", "purple team", "red team", "blue team"],
+    "Programming": ["python", "powershell", "bash", "regex", "kql", "spl", "javascript"],
+}
+_CYBER_CERT_PATTERNS = [
+    "security+", "comptia security", "ceh", "cysa+", "pentest+",
+    "oscp", "osce", "osed", "osep",
+    "cissp", "cisa", "cism", "ccsp",
+    "ccna security", "giac", "gcia", "gcih", "gcfa", "gpen",
+    "az-500", "sc-200", "sc-100", "ms-500",
+    "aws security specialty", "google cybersecurity", "google professional cloud security",
+]
+
+
+def _resume_skills_and_certs(text):
+    """Scan resume text for SOC/cyber tools and certifications.
+    Returns dict {skills: [...], certs: [...]} preserving the catalog labels."""
+    if not text:
+        return {"skills": [], "certs": []}
+    low = text.lower()
+    found = []
+    seen = set()
+    for category, items in _CYBER_SKILL_CATALOG.items():
+        for item in items:
+            if item in low and item not in seen:
+                # Title-case for display, but preserve special tokens like AWS / KQL / SPL
+                display = item.upper() if len(item) <= 4 else item.title()
+                # Fix specific casing
+                fix = {
+                    "Att&Ck": "ATT&CK", "Att&ck": "ATT&CK",
+                    "Aws": "AWS", "Gcp": "GCP", "Edr": "EDR", "Xdr": "XDR",
+                    "Soar": "SOAR", "Siem": "SIEM", "Mitre Att&Ck": "MITRE ATT&CK",
+                    "Mitre Att&ck": "MITRE ATT&CK", "Kql": "KQL", "Spl": "SPL",
+                }
+                display = fix.get(display, display)
+                found.append(display)
+                seen.add(item)
+    certs = []
+    cseen = set()
+    for cert in _CYBER_CERT_PATTERNS:
+        if cert in low and cert not in cseen:
+            certs.append(cert.upper().replace("AWS SECURITY SPECIALTY", "AWS Security").replace("GOOGLE CYBERSECURITY", "Google Cybersecurity"))
+            cseen.add(cert)
+    return {"skills": found, "certs": certs}
+
+
+def _resume_years_experience(text):
+    """Extract approximate years of experience from resume text. Returns int or None."""
+    if not text:
+        return None
+    # Match patterns like "5+ years", "3 yrs", "2 years of"
+    m = re.search(r'(\d{1,2})\s*\+?\s*(?:years?|yrs?)\b', text, re.I)
+    if m:
+        try:
+            return int(m.group(1))
+        except ValueError:
+            return None
+    return None
+
+
+def _read_resume_text(resume_path):
+    """Return the raw text of a PDF resume, or empty string on failure."""
+    if not resume_path or not os.path.exists(resume_path):
+        return ""
+    try:
+        import PyPDF2
+        with open(resume_path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            return " ".join((p.extract_text() or "") for p in reader.pages)
+    except Exception as e:
+        log.warning(f"[Resume] Read failed: {e}")
+        return ""
+
+
+def compose_application_email(job, user, resume_path):
+    """Build a CV-tailored subject + HTML body for a recruiter email.
+
+    Pulls SOC/cyber skills, certifications, and years of experience from the
+    candidate's CV and weaves them into the email so the subject line
+    differentiates the applicant and the body shows direct relevance to the
+    role being applied for. Falls back to a generic-but-correct template if
+    the resume can't be parsed.
+    """
+    text = _read_resume_text(resume_path)
+    sk = _resume_skills_and_certs(text)
+    skills = sk["skills"][:6]
+    certs = sk["certs"][:3]
+    years = _resume_years_experience(text)
+    summary = _extract_resume_summary(resume_path)
+
+    job_title = job.get("title", "Cyber Security Analyst")
+    company = job.get("company", "your organization")
+    name = (user or {}).get("name", "Applicant")
+
+    # Subject line — use the strongest 1–2 differentiators
+    extras = []
+    if years:
+        extras.append(f"{years}+ yrs")
+    if skills:
+        extras.append(skills[0])
+    if certs:
+        extras.append(certs[0])
+    subject_tail = f" ({', '.join(extras)})" if extras else ""
+    subject = f"Application for {job_title} — {name}{subject_tail}"
+
+    profile = (user or {}).get("profile", {}) if user else {}
+    user_email = (user or {}).get("email", "")
+    phone = (user or {}).get("phone", "")
+    linkedin = profile.get("linkedin", "")
+
+    # Hook — match my skills against the job title
+    job_low = job_title.lower()
+    matched = [s for s in skills if s.lower() in job_low]
+    if matched:
+        match_phrase = (f" My background in <strong>{', '.join(matched[:3])}</strong> "
+                        f"directly aligns with the requirements of this role.")
+    elif skills:
+        match_phrase = (f" My hands-on experience with <strong>{', '.join(skills[:3])}</strong> "
+                        f"would translate well to this role.")
+    else:
+        match_phrase = ""
+
+    summary_html = f"<p>{summary}</p>" if summary else ""
+    skills_html = (f"<p><strong>Tools &amp; technologies:</strong> {', '.join(skills)}</p>"
+                   if skills else "")
+    certs_html = (f"<p><strong>Certifications:</strong> {', '.join(certs)}</p>"
+                  if certs else "")
+
+    contact_parts = [f'Email: <a href="mailto:{user_email}">{user_email}</a>']
+    if phone:
+        contact_parts.append(f"Phone: {phone}")
+    if linkedin:
+        contact_parts.append(f'LinkedIn: <a href="{linkedin}">{linkedin}</a>')
+
+    html_body = (
+        f'<div style="font-family: Arial, sans-serif; max-width: 650px; color: #333; line-height: 1.55;">\n'
+        f'<p>Dear Hiring Manager,</p>\n'
+        f'<p>I am writing to apply for the <strong>{job_title}</strong> role at <strong>{company}</strong>.{match_phrase}</p>\n'
+        f'{summary_html}\n'
+        f'{skills_html}\n'
+        f'{certs_html}\n'
+        f'<p>My CV is attached for your review. I would welcome a conversation about how I can contribute to your security operations.</p>\n'
+        f'<p>Kind regards,<br><strong>{name}</strong><br>{"<br>".join(contact_parts)}</p>\n'
+        f'</div>'
+    )
+    return subject, html_body
+
+
+def send_application_confirmation(user, job, recipients_count):
+    """Send a self-confirmation email to the applicant after they apply."""
+    api_key = CONFIG.get("brevo", {}).get("api_key", "")
+    if not api_key:
+        log.info("[Confirm] BREVO_API_KEY not set — skipping confirmation email")
+        return False
+    user_email = (user or {}).get("email", "").strip()
+    if not user_email:
+        return False
+    job_title = job.get("title", "the role")
+    company = job.get("company", "the company")
+    job_url = job.get("url", "")
+
+    if recipients_count > 0:
+        intro = (f"<p>Your application for <strong>{job_title}</strong> at "
+                 f"<strong>{company}</strong> has been sent to "
+                 f"<strong>{recipients_count} hiring contact"
+                 f"{'s' if recipients_count > 1 else ''}</strong> with your CV attached.</p>")
+    else:
+        intro = (f"<p>You marked <strong>{job_title}</strong> at <strong>{company}</strong> "
+                 f"as applied. We couldn't find a public hiring email for this posting, so "
+                 f"please apply directly via the source link below.</p>")
+
+    job_link = f'<p><a href="{job_url}">↗ View the original posting</a></p>' if job_url else ""
+
+    html_body = (
+        f'<div style="font-family: Arial, sans-serif; max-width: 600px; color: #333; line-height: 1.55;">\n'
+        f'<p>Hi {(user or {}).get("name", "there")},</p>\n'
+        f'{intro}\n'
+        f'{job_link}\n'
+        f'<p>This application is now tracked in your dashboard pipeline. Good luck!</p>\n'
+        f'<p style="font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 10px;">'
+        f"Sent automatically by your cyberjobs dashboard. If you didn't apply, "
+        f'reset your password from the dashboard.</p>\n'
+        f'</div>'
+    )
+
+    payload = {
+        "sender": {"name": "Cyberjobs Dashboard", "email": user_email},
+        "to": [{"email": user_email}],
+        "subject": f"✓ Application sent: {job_title} at {company}",
+        "htmlContent": html_body,
+    }
+    try:
+        resp = requests.post("https://api.brevo.com/v3/smtp/email",
+                             headers={"api-key": api_key, "Content-Type": "application/json"},
+                             json=payload, timeout=15)
+        ok = resp.status_code in (200, 201)
+        if not ok:
+            log.warning(f"[Confirm] Brevo {resp.status_code}: {resp.text[:200]}")
+        return ok
+    except Exception as e:
+        log.warning(f"[Confirm] Failed: {e}")
+        return False
+
+
 def send_email_brevo(to_email, job, user=None):
     """Send application email from the user's email. BCC the user a copy."""
     api_key = CONFIG.get("brevo", {}).get("api_key", "")
@@ -1782,48 +2045,11 @@ def send_email_brevo(to_email, job, user=None):
             attachment = [{"content": base64.b64encode(f.read()).decode("utf-8"),
                            "name": os.path.basename(resume_path)}]
 
-    job_title = job.get("title", "Cyber Security Analyst")
-    company = job.get("company", "your organization")
-    subject = f"Application for {job_title} - {sender_name}"
-
-    # Build personalized body from resume
-    resume_summary = _extract_resume_summary(resume_path)
-    if resume_summary:
-        experience_para = f"<p>{resume_summary}</p>"
-    else:
-        # Fallback: use profile fields if available
-        bio = profile.get("bio", "")
-        skills = profile.get("skills", "")
-        exp_years = profile.get("experience", "")
-        if bio:
-            experience_para = f"<p>{bio}</p>"
-        elif skills or exp_years:
-            parts = []
-            if exp_years:
-                parts.append(f"I have {exp_years} year(s) of experience in cybersecurity")
-            if skills:
-                parts.append(f"with skills in {skills}")
-            experience_para = f"<p>{'. '.join(parts)}.</p>"
-        else:
-            experience_para = "<p>I am passionate about cybersecurity and eager to contribute to your security operations team. My resume is attached with detailed experience and qualifications.</p>"
-
-    # Contact info
-    phone = user.get("phone", "") if user else ""
-    linkedin = profile.get("linkedin", "")
-    contact_parts = [f'Email: <a href="mailto:{user_email}">{user_email}</a>']
-    if phone:
-        contact_parts.append(f"Phone: {phone}")
-    if linkedin:
-        contact_parts.append(f'LinkedIn: <a href="{linkedin}">{linkedin}</a>')
-
-    html_body = f"""<div style="font-family: Arial, sans-serif; max-width: 650px; color: #333;">
-<p>Dear Hiring Manager,</p>
-<p>I am writing to express my interest in the <strong>{job_title}</strong> position at <strong>{company}</strong>.</p>
-{experience_para}
-<p>My resume is attached for your consideration. I would welcome the opportunity to discuss how I can contribute to your team.</p>
-<p>Kind regards,<br><strong>{sender_name}</strong><br>
-{'<br>'.join(contact_parts)}</p>
-</div>"""
+    # Build a CV-tailored subject and body. compose_application_email scans the
+    # PDF for SOC tools, certs, and years of experience and builds a subject
+    # like "Application for SOC Analyst — Name (5+ yrs, Splunk, OSCP)" plus a
+    # body that highlights matching skills.
+    subject, html_body = compose_application_email(job, user, resume_path)
 
     # Try sending FROM user's email first, fallback to verified sender
     payload = {
@@ -2740,21 +2966,50 @@ def _apply_background(user_id, job, job_id):
             log.info(f"[ApplyBG] Sent {sent_count} emails for {job.get('company', '?')} (user={user_id})")
         else:
             log.info(f"[ApplyBG] All emails already contacted for {job.get('company', '?')} (user={user_id})")
+
+        # Always send a confirmation to the applicant — even when no recruiter
+        # email was found, so they know we registered the application.
+        try:
+            send_application_confirmation(user, job, sent_count)
+        except Exception as ce:
+            log.warning(f"[ApplyBG] Confirmation email failed: {ce}")
     except Exception as e:
         log.error(f"[ApplyBG] Error: {e}")
 
 
 @app.route("/api/apply", methods=["POST"])
 def api_apply():
-    data = request.json
+    data = request.json or {}
     idx = data.get("job_index")
-    user_id = data.get("user_id", "")
+
+    # Validate session — applying is gated behind a logged-in account
+    sess_uid, sess_user = resolve_session(request)
+    if sess_uid:
+        user_id = sess_uid
+    else:
+        # Backward compat: legacy clients can still pass user_id directly,
+        # but only if a session token wasn't expected. Reject when not found.
+        user_id = (data.get("user_id") or "").strip()
+        if not user_id or user_id not in USERS:
+            return jsonify({
+                "success": False,
+                "needs_login": True,
+                "message": "Please log in to apply for this job."
+            }), 401
+
+    user = USERS[user_id]
+
+    # CV is mandatory when REQUIRE_RESUME is enabled — otherwise the recruiter
+    # email has nothing to attach and the personalisation falls flat.
+    if REQUIRE_RESUME and not user_has_resume(user, user_id):
+        return jsonify({
+            "success": False,
+            "needs_resume": True,
+            "message": "Please upload your CV before applying — it gets attached to the recruiter email."
+        }), 400
 
     if idx is None or idx >= len(ALL_JOBS):
         return jsonify({"success": False, "message": "Invalid job index"})
-
-    if user_id not in USERS:
-        return jsonify({"success": False, "message": "Please register first before applying."})
 
     job = ALL_JOBS[idx]
     job_id = job_hash(job["title"], job["company"], job["platform"])
