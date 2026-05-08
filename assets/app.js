@@ -25,6 +25,30 @@
     },
   };
 
+  // ─── Migration ─────────────────────────────────────────────────────
+  function migratePipeline(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+    const out = {};
+    for (const [id, e] of Object.entries(raw)) {
+      if (!e || !e.stage) continue;
+      const ts = e.ts || Date.now();
+      out[id] = {
+        stage: e.stage,
+        appliedAt: e.appliedAt || ts,
+        lastActionAt: e.lastActionAt || ts,
+        followUpAt: e.followUpAt || null,
+        notes: e.notes || '',
+        recruiterName: e.recruiterName || '',
+        recruiterEmail: e.recruiterEmail || '',
+        recruiterLinkedin: e.recruiterLinkedin || '',
+        salary: e.salary || '',
+        history: Array.isArray(e.history) ? e.history : [{ ts, type: 'create', to: e.stage }],
+        ts,
+      };
+    }
+    return out;
+  }
+
   // ─── In-memory state ───────────────────────────────────────────────
   const state = {
     jobs: [],
@@ -36,8 +60,9 @@
     onlyNew: false,
     filters: { date: 'all', level: 'all', locType: 'all', platform: 'all' },
     saved: Storage.get('saved', {}),
-    pipeline: Storage.get('pipeline', {}),       // { jobId: { stage, ts, notes } }
+    pipeline: migratePipeline(Storage.get('pipeline', {})),
     hidden: Storage.get('hidden', {}),
+    detailOpen: null,
     resume: Storage.get('resume', ''),
     resumeScores: Storage.get('resumeScores', {}),
     lastVisit: Storage.get('lastVisit', null),
@@ -77,6 +102,27 @@
     kanban: $('kanban'),
     helpDialog: $('helpDialog'),
     openHelp: $('openHelp'),
+    detailDialog: $('detailDialog'),
+    detailClose: $('detailClose'),
+    detailTitle: $('detailTitle'),
+    detailSub: $('detailSub'),
+    detailLink: $('detailLink'),
+    detailStageButtons: $('detailStageButtons'),
+    detailApplied: $('detailApplied'),
+    detailFollowUp: $('detailFollowUp'),
+    detailFollowState: $('detailFollowState'),
+    detailNotes: $('detailNotes'),
+    detailRecName: $('detailRecName'),
+    detailRecEmail: $('detailRecEmail'),
+    detailRecLinkedin: $('detailRecLinkedin'),
+    detailSalary: $('detailSalary'),
+    detailTimeline: $('detailTimeline'),
+    detailRemove: $('detailRemove'),
+    detailSave: $('detailSave'),
+    dashboard: $('dashboard'),
+    overdueList: $('overdueList'),
+    exportApps: $('exportApps'),
+    importApps: $('importApps'),
     resumeText: $('resumeText'),
     scoreResume: $('scoreResume'),
     clearResume: $('clearResume'),
@@ -278,13 +324,49 @@
   }
 
   function setPipeline(id, stage) {
-    if (!stage || !STAGES.includes(stage)) {
-      delete state.pipeline[id];
-    } else {
-      state.pipeline[id] = { stage, ts: Date.now(), ...state.pipeline[id], stage };
+    if (!stage) {
+      const prev = state.pipeline[id];
+      if (prev) {
+        // Soft-delete: preserve history under archive in case user undoes
+        delete state.pipeline[id];
+      }
+    } else if (STAGES.includes(stage)) {
+      const now = Date.now();
+      const prev = state.pipeline[id];
+      const history = (prev?.history || []).slice();
+      if (prev) {
+        if (prev.stage !== stage) {
+          history.push({ ts: now, type: 'stage', from: prev.stage, to: stage });
+        }
+      } else {
+        history.push({ ts: now, type: 'create', to: stage });
+      }
+      state.pipeline[id] = {
+        notes: '', recruiterName: '', recruiterEmail: '', recruiterLinkedin: '', salary: '', followUpAt: null,
+        ...prev,
+        stage,
+        appliedAt: prev?.appliedAt || now,
+        lastActionAt: now,
+        ts: prev?.ts || now,
+        history,
+      };
     }
     Storage.set('pipeline', state.pipeline);
     updateStatBar();
+    renderJobChrome(id);
+    renderKanbanIfActive();
+    if (state.detailOpen === id) renderDetailModal(id);
+  }
+
+  function updateAppField(id, field, value) {
+    const entry = state.pipeline[id];
+    if (!entry) return;
+    const now = Date.now();
+    entry[field] = value;
+    entry.lastActionAt = now;
+    entry.history = entry.history || [];
+    entry.history.push({ ts: now, type: 'edit', field, value: typeof value === 'string' ? value.slice(0, 80) : value });
+    Storage.set('pipeline', state.pipeline);
     renderJobChrome(id);
     renderKanbanIfActive();
   }
@@ -439,8 +521,240 @@
 
   // ─── Pipeline / kanban ─────────────────────────────────────────────
   function renderKanbanIfActive() {
-    if (state.view === 'pipeline') renderKanban();
+    if (state.view === 'pipeline') {
+      renderKanban();
+      renderStatsDashboard();
+      renderOverdueList();
+    }
   }
+
+  // ─── Stats dashboard ───────────────────────────────────────────────
+  function pipelineStats() {
+    const entries = Object.entries(state.pipeline);
+    const byStage = { applied: 0, interviewing: 0, offer: 0, rejected: 0 };
+    let totalActive = 0, totalClosed = 0;
+    let oldestActiveTs = null;
+    const weekAgo = Date.now() - 7 * 86400000;
+    let appliedThisWeek = 0;
+    const stageDurations = { applied: [], interviewing: [], offer: [] };
+
+    for (const [id, e] of entries) {
+      byStage[e.stage] = (byStage[e.stage] || 0) + 1;
+      if (e.stage === 'rejected') totalClosed++;
+      else totalActive++;
+      if (e.appliedAt && e.appliedAt > weekAgo) appliedThisWeek++;
+      if (e.stage !== 'rejected' && (oldestActiveTs == null || e.appliedAt < oldestActiveTs)) {
+        oldestActiveTs = e.appliedAt;
+      }
+      // History-derived stage durations
+      const hist = e.history || [];
+      const stageEntries = [{ stage: hist[0]?.to || e.stage, ts: hist[0]?.ts || e.appliedAt }];
+      for (const h of hist) {
+        if (h.type === 'stage') stageEntries.push({ stage: h.to, ts: h.ts });
+      }
+      for (let i = 0; i < stageEntries.length; i++) {
+        const cur = stageEntries[i];
+        const next = stageEntries[i + 1];
+        const endTs = next ? next.ts : Date.now();
+        if (stageDurations[cur.stage]) stageDurations[cur.stage].push(endTs - cur.ts);
+      }
+    }
+
+    const avgDays = (arr) => {
+      if (!arr.length) return 0;
+      return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length / 86400000 * 10) / 10;
+    };
+
+    const totalApplied = entries.length;
+    const reachedInterview = byStage.interviewing + byStage.offer;
+    const reachedOffer = byStage.offer;
+
+    return {
+      totalApplied,
+      totalActive,
+      totalClosed,
+      byStage,
+      appliedThisWeek,
+      oldestActiveAge: oldestActiveTs ? Math.round((Date.now() - oldestActiveTs) / 86400000) : null,
+      interviewRate: totalApplied ? Math.round((reachedInterview / totalApplied) * 100) : 0,
+      offerRate: totalApplied ? Math.round((reachedOffer / totalApplied) * 100) : 0,
+      avgDaysApplied: avgDays(stageDurations.applied),
+      avgDaysInterviewing: avgDays(stageDurations.interviewing),
+    };
+  }
+
+  function activitySparkline() {
+    // Last 12 weeks of activity
+    const buckets = new Array(12).fill(0);
+    const now = Date.now();
+    const bucketSize = 7 * 86400000;
+    for (const e of Object.values(state.pipeline)) {
+      if (!e.appliedAt) continue;
+      const age = now - e.appliedAt;
+      const idx = 11 - Math.floor(age / bucketSize);
+      if (idx >= 0 && idx < 12) buckets[idx]++;
+    }
+    return buckets;
+  }
+
+  function renderStatsDashboard() {
+    if (!els.dashboard) return;
+    const s = pipelineStats();
+    if (s.totalApplied === 0 && Object.keys(state.saved).length === 0) {
+      els.dashboard.innerHTML = `
+        <div class="dashboard__empty">
+          <p>You haven't tracked any applications yet. Save a role with <kbd>★</kbd> from the Browse view, then mark it applied with <kbd>+</kbd>.</p>
+        </div>`;
+      return;
+    }
+
+    const sparks = activitySparkline();
+    const maxSpark = Math.max(...sparks, 1);
+    const sparkBars = sparks.map((v, i) => {
+      const h = Math.round((v / maxSpark) * 100);
+      return `<span class="spark__bar" style="height:${Math.max(h, 4)}%" title="Week of ${(11 - i)} weeks ago: ${v} apps"></span>`;
+    }).join('');
+
+    const funnel = [
+      { stage: 'applied',      count: s.totalApplied,         label: 'Applied'    },
+      { stage: 'interviewing', count: s.byStage.interviewing + s.byStage.offer, label: 'Interviewing' },
+      { stage: 'offer',        count: s.byStage.offer,        label: 'Offer'      },
+    ];
+    const maxFunnel = Math.max(...funnel.map((f) => f.count), 1);
+
+    els.dashboard.innerHTML = `
+      <div class="dashboard__row">
+        <div class="kpi">
+          <div class="kpi__value">${fmtNum(s.totalApplied)}</div>
+          <div class="kpi__label">total tracked</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi__value">${fmtNum(s.totalActive)}</div>
+          <div class="kpi__label">active</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi__value">${fmtNum(s.appliedThisWeek)}</div>
+          <div class="kpi__label">this week</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi__value">${s.interviewRate}<span class="kpi__unit">%</span></div>
+          <div class="kpi__label">to interview</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi__value">${s.offerRate}<span class="kpi__unit">%</span></div>
+          <div class="kpi__label">to offer</div>
+        </div>
+        <div class="kpi kpi--wide">
+          <div class="spark" aria-label="Applications over the last 12 weeks">${sparkBars}</div>
+          <div class="kpi__label">last 12 weeks of activity</div>
+        </div>
+      </div>
+
+      <div class="funnel">
+        ${funnel.map((f, i) => `
+          <div class="funnel__step" data-stage="${f.stage}">
+            <div class="funnel__bar" style="--w:${(f.count / maxFunnel) * 100}%"></div>
+            <div class="funnel__meta">
+              <span class="funnel__count">${fmtNum(f.count)}</span>
+              <span class="funnel__label">${f.label}</span>
+              ${i > 0 ? `<span class="funnel__rate">${funnel[i-1].count ? Math.round((f.count / funnel[i-1].count) * 100) : 0}%</span>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="dashboard__detail">
+        <div class="detail-stat"><span>Avg time in <em>applied</em></span><strong>${s.avgDaysApplied}d</strong></div>
+        <div class="detail-stat"><span>Avg time in <em>interviewing</em></span><strong>${s.avgDaysInterviewing}d</strong></div>
+        <div class="detail-stat"><span>Oldest active app</span><strong>${s.oldestActiveAge != null ? s.oldestActiveAge + 'd ago' : '—'}</strong></div>
+        <div class="detail-stat"><span>Closed (rejected)</span><strong>${fmtNum(s.totalClosed)}</strong></div>
+      </div>
+    `;
+  }
+
+  function renderOverdueList() {
+    if (!els.overdueList) return;
+    const today = Date.now();
+    const items = [];
+    for (const [id, e] of Object.entries(state.pipeline)) {
+      if (!e.followUpAt) continue;
+      const j = findJobById(id);
+      if (!j) continue;
+      const status = followUpStatusText(e.followUpAt);
+      if (status.level === 'overdue' || status.level === 'due' || status.level === 'soon') {
+        items.push({ id, job: j, entry: e, status });
+      }
+    }
+    if (items.length === 0) {
+      els.overdueList.hidden = true;
+      els.overdueList.innerHTML = '';
+      return;
+    }
+    items.sort((a, b) => (a.entry.followUpAt || 0) - (b.entry.followUpAt || 0));
+    els.overdueList.hidden = false;
+    els.overdueList.innerHTML = `
+      <h3 class="overdue__title">Follow-ups</h3>
+      <ul class="overdue__list">
+        ${items.map((it) => `
+          <li class="overdue__item" data-level="${it.status.level}" data-id="${escapeHtml(it.id)}">
+            <button class="overdue__open" data-id="${escapeHtml(it.id)}">
+              <span class="overdue__when" data-level="${it.status.level}">${escapeHtml(it.status.text)}</span>
+              <span class="overdue__job"><strong>${escapeHtml(it.job.title)}</strong> &mdash; ${escapeHtml(it.job.company || '?')}</span>
+              <span class="overdue__stage">${escapeHtml(it.entry.stage)}</span>
+            </button>
+          </li>`).join('')}
+      </ul>
+    `;
+  }
+
+  // ─── Export / import ───────────────────────────────────────────────
+  function exportApps() {
+    const data = {
+      _format: 'cyberjobs-tracker-v1',
+      exportedAt: new Date().toISOString(),
+      saved: state.saved,
+      pipeline: state.pipeline,
+      hidden: state.hidden,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cyberjobs-tracker-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function importApps(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data || data._format !== 'cyberjobs-tracker-v1') {
+        alert('Not a recognised cyberjobs tracker export file.');
+        return;
+      }
+      const incomingApps = Object.keys(data.pipeline || {}).length;
+      const incomingSaved = Object.keys(data.saved || {}).length;
+      if (!confirm(`Import ${incomingApps} pipeline entries and ${incomingSaved} saved roles? Existing entries with the same job ID will be overwritten with the imported version.`)) return;
+
+      state.saved = { ...state.saved, ...(data.saved || {}) };
+      state.pipeline = { ...state.pipeline, ...migratePipeline(data.pipeline || {}) };
+      state.hidden = { ...state.hidden, ...(data.hidden || {}) };
+      Storage.set('saved', state.saved);
+      Storage.set('pipeline', state.pipeline);
+      Storage.set('hidden', state.hidden);
+
+      updateStatBar();
+      applyFilter();
+      renderKanbanIfActive();
+    } catch (e) {
+      alert('Import failed: ' + e.message);
+    }
+  }
+
 
   function renderKanban() {
     const cols = KANBAN_COLS.map((stage) => ({ stage, jobs: [] }));
@@ -479,28 +793,45 @@
   }
 
   function renderKanbanCard(j, currentStage) {
-    const url = isSafeUrl(j.url) ? j.url : null;
     const id = j._id;
-    const date = j._postedDate || j._foundDate;
-    const dateText = date ? fmtRelative(date) : '';
+    const entry = state.pipeline[id];
+    const appliedDate = entry?.appliedAt ? new Date(entry.appliedAt) : null;
+    const ageText = appliedDate
+      ? `applied ${fmtRelative(appliedDate)}`
+      : (state.saved[id] ? `saved ${fmtRelative(new Date(state.saved[id].ts))}` : '');
 
-    // Move targets: pipeline stages other than current
+    let followUpHtml = '';
+    if (entry?.followUpAt) {
+      const s = followUpStatusText(entry.followUpAt);
+      followUpHtml = `<span class="kanban-card__followup" data-level="${s.level}">⏰ ${escapeHtml(s.text)}</span>`;
+    }
+
+    const notesPreview = entry?.notes
+      ? `<p class="kanban-card__notes">${escapeHtml(entry.notes.slice(0, 90))}${entry.notes.length > 90 ? '…' : ''}</p>`
+      : '';
+
+    const recruiterIcon = entry?.recruiterName
+      ? `<span class="kanban-card__pill" title="Recruiter contact saved">👤 ${escapeHtml(entry.recruiterName.slice(0, 20))}</span>`
+      : '';
+
     const moveButtons = STAGES
       .filter((s) => s !== currentStage)
       .map((s) => `<button class="kanban-move" data-id="${escapeHtml(id)}" data-stage="${s}" title="Move to ${s}">${s[0].toUpperCase()}</button>`)
       .join('');
 
     return `
-      <article class="kanban-card" data-id="${escapeHtml(id)}">
-        <h4 class="kanban-card__title">${url
-          ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j.title)}</a>`
-          : escapeHtml(j.title)}</h4>
+      <article class="kanban-card${entry?.followUpAt && followUpStatusText(entry.followUpAt).level === 'overdue' ? ' is-overdue' : ''}" data-id="${escapeHtml(id)}">
+        <h4 class="kanban-card__title">
+          <a href="#" class="kanban-card__open" data-id="${escapeHtml(id)}">${escapeHtml(j.title)}</a>
+        </h4>
         <div class="kanban-card__sub">
           <span>${escapeHtml(j.company || '?')}</span>
           ${j.location ? `<span class="muted">· ${escapeHtml(j.location)}</span>` : ''}
         </div>
+        ${notesPreview}
+        ${followUpHtml || recruiterIcon ? `<div class="kanban-card__chips">${followUpHtml}${recruiterIcon}</div>` : ''}
         <div class="kanban-card__foot">
-          <span class="muted">${escapeHtml(dateText)}</span>
+          <span class="muted">${escapeHtml(ageText)}</span>
           <div class="kanban-card__actions">
             ${moveButtons}
             <button class="kanban-move kanban-move--remove" data-id="${escapeHtml(id)}" data-stage="" title="Remove from pipeline">✕</button>
@@ -508,6 +839,164 @@
         </div>
       </article>
     `;
+  }
+
+  // ─── Detail modal ──────────────────────────────────────────────────
+  function findJobById(id) {
+    return state.jobs.find((j) => j._id === id) || null;
+  }
+
+  function fmtDateInput(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function followUpStatusText(ts) {
+    if (!ts) return '';
+    const today = new Date(); today.setHours(0,0,0,0);
+    const target = new Date(ts); target.setHours(0,0,0,0);
+    const diffDays = Math.round((target - today) / 86400000);
+    if (diffDays < 0) return { text: `${-diffDays}d overdue`, level: 'overdue' };
+    if (diffDays === 0) return { text: 'Due today', level: 'due' };
+    if (diffDays <= 2) return { text: `Due in ${diffDays}d`, level: 'soon' };
+    return { text: `In ${diffDays}d`, level: 'later' };
+  }
+
+  function openDetail(id) {
+    const j = findJobById(id);
+    if (!j) return;
+    state.detailOpen = id;
+    renderDetailModal(id);
+    if (typeof els.detailDialog.showModal === 'function') els.detailDialog.showModal();
+    else els.detailDialog.setAttribute('open', 'true');
+  }
+
+  function closeDetail() {
+    state.detailOpen = null;
+    if (typeof els.detailDialog.close === 'function') els.detailDialog.close();
+    else els.detailDialog.removeAttribute('open');
+  }
+
+  function renderDetailModal(id) {
+    const j = findJobById(id);
+    if (!j) return;
+    const entry = state.pipeline[id];
+    els.detailTitle.textContent = j.title || 'Untitled role';
+    const subParts = [j.company || 'Unknown company'];
+    if (j.location) subParts.push(j.location);
+    if (j.platform) subParts.push(j.platform);
+    els.detailSub.textContent = subParts.join(' · ');
+
+    if (isSafeUrl(j.url)) {
+      els.detailLink.href = j.url;
+      els.detailLink.hidden = false;
+    } else {
+      els.detailLink.hidden = true;
+    }
+
+    // Stage buttons
+    const stages = ['saved', ...STAGES];
+    const currentStage = entry?.stage || (isSaved(id) ? 'saved' : null);
+    els.detailStageButtons.innerHTML = stages.map((s) => `
+      <button class="stage-btn${currentStage === s ? ' is-active' : ''}" data-stage="${s}" type="button">
+        <span class="stage-btn__dot" data-stage="${s}"></span>${s}
+      </button>
+    `).join('');
+
+    // Applied date
+    if (entry?.appliedAt) {
+      const d = new Date(entry.appliedAt);
+      els.detailApplied.textContent = `${fmtAbs(d)} (${fmtRelative(d)})`;
+    } else if (isSaved(id)) {
+      const d = new Date(state.saved[id].ts);
+      els.detailApplied.textContent = `Saved ${fmtRelative(d)} (not yet applied)`;
+    } else {
+      els.detailApplied.textContent = 'Not yet applied';
+    }
+
+    // Follow-up
+    els.detailFollowUp.value = entry?.followUpAt ? fmtDateInput(entry.followUpAt) : '';
+    if (entry?.followUpAt) {
+      const s = followUpStatusText(entry.followUpAt);
+      els.detailFollowState.textContent = s.text || '';
+      els.detailFollowState.dataset.level = s.level || '';
+    } else {
+      els.detailFollowState.textContent = '';
+      els.detailFollowState.dataset.level = '';
+    }
+
+    // Form fields
+    els.detailNotes.value = entry?.notes || '';
+    els.detailRecName.value = entry?.recruiterName || '';
+    els.detailRecEmail.value = entry?.recruiterEmail || '';
+    els.detailRecLinkedin.value = entry?.recruiterLinkedin || '';
+    els.detailSalary.value = entry?.salary || '';
+
+    // Timeline
+    const history = entry?.history || [];
+    els.detailTimeline.innerHTML = history.length === 0
+      ? '<li class="detail__timeline-empty">No history yet.</li>'
+      : history.slice().reverse().map((h) => {
+          const when = new Date(h.ts);
+          const ago = fmtRelative(when);
+          let label = '';
+          if (h.type === 'create') label = `Created in <strong>${escapeHtml(h.to)}</strong>`;
+          else if (h.type === 'stage') label = `Moved <strong>${escapeHtml(h.from)}</strong> → <strong>${escapeHtml(h.to)}</strong>`;
+          else if (h.type === 'edit') label = `Updated ${escapeHtml(h.field)}${h.value ? ': <em>' + escapeHtml(String(h.value)) + '</em>' : ''}`;
+          else label = escapeHtml(h.type);
+          return `<li><time datetime="${when.toISOString()}" title="${escapeHtml(fmtAbs(when))}">${ago}</time> ${label}</li>`;
+        }).join('');
+
+    // Remove button: only show if in pipeline
+    els.detailRemove.hidden = !entry;
+  }
+
+  function saveDetail() {
+    const id = state.detailOpen;
+    if (!id) return;
+    const entry = state.pipeline[id];
+
+    // If user is editing without an entry yet, create one in 'applied' first
+    let stage = entry?.stage;
+    if (!stage) {
+      // No-op — they need to pick a stage first
+      return;
+    }
+
+    const now = Date.now();
+    const followText = els.detailFollowUp.value;
+    const followTs = followText ? new Date(followText + 'T09:00:00').getTime() : null;
+
+    const newEntry = {
+      ...entry,
+      followUpAt: followTs,
+      notes: els.detailNotes.value,
+      recruiterName: els.detailRecName.value.trim(),
+      recruiterEmail: els.detailRecEmail.value.trim(),
+      recruiterLinkedin: els.detailRecLinkedin.value.trim(),
+      salary: els.detailSalary.value.trim(),
+      lastActionAt: now,
+    };
+    // Only push to history if something actually changed
+    const changedFields = [];
+    for (const k of ['followUpAt', 'notes', 'recruiterName', 'recruiterEmail', 'recruiterLinkedin', 'salary']) {
+      if ((entry?.[k] || '') !== (newEntry[k] || '')) changedFields.push(k);
+    }
+    if (changedFields.length) {
+      newEntry.history = (entry?.history || []).concat([{ ts: now, type: 'edit', field: changedFields.join(', ') }]);
+    }
+    state.pipeline[id] = newEntry;
+    Storage.set('pipeline', state.pipeline);
+    updateStatBar();
+    renderJobChrome(id);
+    renderKanbanIfActive();
+    renderStatsDashboard();
+    renderDetailModal(id);
   }
 
   // ─── Filter chips ──────────────────────────────────────────────────
@@ -629,7 +1118,11 @@
     els.viewPipeline.hidden = state.view !== 'pipeline';
     els.navList.classList.toggle('is-active', state.view === 'list');
     els.navPipeline.classList.toggle('is-active', state.view === 'pipeline');
-    if (state.view === 'pipeline') renderKanban();
+    if (state.view === 'pipeline') {
+      renderKanban();
+      renderStatsDashboard();
+      renderOverdueList();
+    }
     writeUrlState();
   }
 
@@ -773,11 +1266,83 @@
     });
 
     els.kanban.addEventListener('click', (e) => {
-      const btn = e.target.closest('.kanban-move');
+      const moveBtn = e.target.closest('.kanban-move');
+      if (moveBtn) {
+        e.preventDefault();
+        setPipeline(moveBtn.dataset.id, moveBtn.dataset.stage || null);
+        return;
+      }
+      const open = e.target.closest('.kanban-card__open, .kanban-card');
+      if (open) {
+        e.preventDefault();
+        const card = open.closest('.kanban-card');
+        const id = (open.dataset && open.dataset.id) || (card && card.dataset.id);
+        if (id) openDetail(id);
+      }
+    });
+
+    if (els.overdueList) {
+      els.overdueList.addEventListener('click', (e) => {
+        const btn = e.target.closest('.overdue__open');
+        if (btn) {
+          e.preventDefault();
+          openDetail(btn.dataset.id);
+        }
+      });
+    }
+
+    // Detail modal events
+    els.detailClose.addEventListener('click', () => closeDetail());
+    els.detailDialog.addEventListener('close', () => { state.detailOpen = null; });
+    els.detailDialog.addEventListener('click', (e) => {
+      if (e.target === els.detailDialog) closeDetail();
+    });
+    els.detailStageButtons.addEventListener('click', (e) => {
+      const btn = e.target.closest('.stage-btn');
       if (!btn) return;
-      const id = btn.dataset.id;
       const stage = btn.dataset.stage;
-      setPipeline(id, stage || null);
+      const id = state.detailOpen;
+      if (!id) return;
+      if (stage === 'saved') {
+        if (!isSaved(id)) toggleSaved(id);
+        // Remove from pipeline if there
+        if (state.pipeline[id]) setPipeline(id, null);
+      } else {
+        setPipeline(id, stage);
+      }
+      renderDetailModal(id);
+    });
+    els.detailSave.addEventListener('click', () => {
+      saveDetail();
+      els.detailFollowState.classList.add('flash');
+      setTimeout(() => els.detailFollowState.classList.remove('flash'), 300);
+    });
+    els.detailRemove.addEventListener('click', () => {
+      const id = state.detailOpen;
+      if (!id) return;
+      if (!confirm('Remove this role from the pipeline? Saved status will remain.')) return;
+      setPipeline(id, null);
+      closeDetail();
+    });
+    els.detailFollowUp.addEventListener('change', () => {
+      // Live-update the status text under the date
+      const v = els.detailFollowUp.value;
+      if (!v) {
+        els.detailFollowState.textContent = '';
+        els.detailFollowState.dataset.level = '';
+        return;
+      }
+      const ts = new Date(v + 'T09:00:00').getTime();
+      const s = followUpStatusText(ts);
+      els.detailFollowState.textContent = s.text;
+      els.detailFollowState.dataset.level = s.level;
+    });
+
+    // Export / import
+    if (els.exportApps) els.exportApps.addEventListener('click', exportApps);
+    if (els.importApps) els.importApps.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) importApps(file).then(() => { e.target.value = ''; });
     });
 
     els.navList.addEventListener('click', () => showView('list'));

@@ -172,9 +172,22 @@
   <!-- ============== PIPELINE VIEW ============== -->
   <section class="view view--pipeline container" id="viewPipeline" hidden>
     <header class="pipeline__head">
-      <h2>Application pipeline</h2>
-      <p class="muted">Drag is not implemented &mdash; use the buttons on each card. State persists in this browser.</p>
+      <div>
+        <h2>Application pipeline</h2>
+        <p class="muted">All data lives in this browser. Use export to back it up.</p>
+      </div>
+      <div class="pipeline__head-actions">
+        <button class="btn-ghost" id="exportApps" type="button" title="Download a JSON backup of saved + pipeline data">Export</button>
+        <label class="btn-ghost" for="importApps" title="Restore from a previously exported JSON file">Import
+          <input type="file" id="importApps" accept="application/json" hidden>
+        </label>
+      </div>
     </header>
+
+    <div class="dashboard" id="dashboard"></div>
+
+    <div class="overdue" id="overdueList" hidden></div>
+
     <div class="kanban" id="kanban"></div>
   </section>
 
@@ -186,6 +199,73 @@
     <span class="muted">No tracking. No login. No backend.</span>
   </div>
 </footer>
+
+<!-- ============== APPLICATION DETAIL DIALOG ============== -->
+<dialog id="detailDialog" class="detail">
+  <div class="detail__inner">
+    <button class="detail__close" id="detailClose" type="button" aria-label="Close">×</button>
+    <header class="detail__head">
+      <h3 class="detail__title" id="detailTitle">—</h3>
+      <p class="detail__sub" id="detailSub"></p>
+      <a class="detail__link" id="detailLink" target="_blank" rel="noopener" hidden>↗ Open original posting</a>
+    </header>
+
+    <section class="detail__section">
+      <div class="detail__row">
+        <label class="detail__label">Stage</label>
+        <div class="detail__stage-buttons" id="detailStageButtons"></div>
+      </div>
+      <div class="detail__row">
+        <label class="detail__label">Applied</label>
+        <span class="detail__value" id="detailApplied">—</span>
+      </div>
+      <div class="detail__row">
+        <label class="detail__label" for="detailFollowUp">Follow up on</label>
+        <div class="detail__followup">
+          <input type="date" id="detailFollowUp" class="detail__input">
+          <span class="detail__followup-state" id="detailFollowState"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="detail__section">
+      <label class="detail__label" for="detailNotes">Notes</label>
+      <textarea id="detailNotes" class="detail__textarea" placeholder="Conversation log, what to mention next, who interviewed you, etc."></textarea>
+    </section>
+
+    <section class="detail__section">
+      <h4 class="detail__h4">Recruiter / contact</h4>
+      <div class="detail__grid">
+        <label class="detail__field">
+          <span>Name</span>
+          <input type="text" id="detailRecName" class="detail__input">
+        </label>
+        <label class="detail__field">
+          <span>Email</span>
+          <input type="email" id="detailRecEmail" class="detail__input">
+        </label>
+        <label class="detail__field detail__field--wide">
+          <span>LinkedIn / contact link</span>
+          <input type="text" id="detailRecLinkedin" class="detail__input" placeholder="https://...">
+        </label>
+        <label class="detail__field">
+          <span>Salary discussed</span>
+          <input type="text" id="detailSalary" class="detail__input" placeholder="e.g. ₹12-15 LPA, $90k">
+        </label>
+      </div>
+    </section>
+
+    <section class="detail__section">
+      <h4 class="detail__h4">Timeline</h4>
+      <ol class="detail__timeline" id="detailTimeline"></ol>
+    </section>
+
+    <footer class="detail__foot">
+      <button class="btn-ghost" id="detailRemove" type="button">Remove from pipeline</button>
+      <button class="btn-primary" id="detailSave" type="button">Save changes</button>
+    </footer>
+  </div>
+</dialog>
 
 <!-- ============== HELP DIALOG ============== -->
 <dialog id="helpDialog" class="help">
