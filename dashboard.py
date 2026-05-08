@@ -86,7 +86,7 @@ else:
         "check_interval_minutes": 30,
         "applicant": {"name": "", "email": "", "phone": "", "linkedin_url": ""},
         "brevo": {"api_key": os.environ.get("BREVO_API_KEY", "")},
-        "admin_secret": os.environ.get("ADMIN_SECRET", "cyberjobs2026"),
+        "admin_secret": os.environ.get("ADMIN_SECRET", ""),
         "auto_apply": False,
         "email_hiring_teams": False,
         "save_results": True,
@@ -3715,7 +3715,9 @@ def api_get_alerts():
 
 
 # ─── ADMIN PANEL ────────────────────────────────────────────────────
-ADMIN_SECRET = CONFIG.get("admin_secret", "cyberjobs2026")
+ADMIN_SECRET = CONFIG.get("admin_secret", "")
+if not ADMIN_SECRET:
+    log.warning("ADMIN_SECRET not configured. Admin panel will be inaccessible until ADMIN_SECRET env var is set.")
 
 
 @app.route("/admin")
@@ -3727,6 +3729,8 @@ def admin_page():
 @app.route("/api/admin/auth", methods=["POST"])
 def admin_auth():
     secret = (request.json or {}).get("secret", "")
+    if not ADMIN_SECRET:
+        return jsonify({"success": False, "message": "Admin panel disabled. Set the ADMIN_SECRET environment variable."})
     if secret == ADMIN_SECRET:
         return jsonify({"success": True})
     return jsonify({"success": False, "message": "Wrong admin password."})
@@ -3904,7 +3908,7 @@ def admin_sync_push():
     global ALL_JOBS
     data = request.json or {}
     secret = data.get("secret", "")
-    if secret != ADMIN_SECRET:
+    if not ADMIN_SECRET or secret != ADMIN_SECRET:
         return jsonify({"success": False, "message": "Unauthorized."})
 
     synced = []
@@ -3938,7 +3942,7 @@ def admin_sync_pull():
     """Return all jobs and users data for pulling to another instance."""
     data = request.json or {}
     secret = data.get("secret", "")
-    if secret != ADMIN_SECRET:
+    if not ADMIN_SECRET or secret != ADMIN_SECRET:
         return jsonify({"success": False, "message": "Unauthorized."})
     return jsonify({
         "success": True,

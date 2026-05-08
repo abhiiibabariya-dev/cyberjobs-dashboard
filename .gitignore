@@ -21,3 +21,13 @@ dist/
 build/
 .venv/
 venv/
+
+# Sensitive runtime data — must never be committed
+users.json
+bookmarks.json
+app_notes.json
+application_log.json
+recent_searches.json
+salary_data.json
+company_reviews.json
+dashboard_emailed.json
