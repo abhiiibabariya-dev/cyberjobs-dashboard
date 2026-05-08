@@ -26,6 +26,11 @@
         Pipeline
         <span class="nav-btn__count" id="pipelineCount">0</span>
       </button>
+      <span class="auth-bar" id="authBar" hidden>
+        <span class="backend-status" id="backendStatus">checking…</span>
+        <a href="#" id="loginLink" class="nav-btn">Login</a>
+        <a href="#" id="signupLink" class="nav-btn nav-btn--primary">Sign up</a>
+      </span>
       <button class="nav-btn" id="openHelp" title="Keyboard shortcuts (?)">?</button>
       <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener" class="nav-link">source</a>
     </nav>
@@ -38,9 +43,24 @@
   <section class="view view--list" id="viewList">
     <div class="hero container">
       <h1>Security roles, surfaced from the noise.</h1>
-      <p class="hero__lead">A snapshot of SOC analyst, security engineer, and cyber operations roles &mdash; collected from LinkedIn by an open-source scanner.</p>
+      <p class="hero__lead">A curated board of SOC analyst, security engineer, and cyber operations roles &mdash; collected from LinkedIn by an open-source scanner. <strong>Strictly cybersecurity</strong>.</p>
       <div class="stale-banner" id="staleBanner" hidden></div>
       <div class="diff-banner" id="diffBanner" hidden></div>
+      <div class="deploy-banner" id="deployBanner">
+        <div class="deploy-banner__head">
+          <span class="deploy-banner__pill">backend</span>
+          <strong>Want login, mandatory CV upload, every-30-min scans across all 8 portals, and email alerts?</strong>
+        </div>
+        <p class="deploy-banner__body">
+          The full Flask app on <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard/tree/master" rel="noopener">the master branch</a> ships with all of it. Deploy in ~5 minutes:
+        </p>
+        <div class="deploy-banner__actions">
+          <a class="btn-primary" href="https://render.com/deploy?repo=https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" target="_blank" rel="noopener">Deploy to Render →</a>
+          <a class="btn-ghost" href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard/blob/master/DEPLOY.md" target="_blank" rel="noopener">Read DEPLOY.md</a>
+          <button class="btn-ghost" type="button" id="deployBannerClose">Dismiss</button>
+        </div>
+        <p class="deploy-banner__hint muted">After deploy, paste your URL: <input type="text" id="apiBaseInput" placeholder="https://your-app.onrender.com" class="deploy-banner__input"> <button id="apiBaseSet" type="button" class="link-btn">Connect</button></p>
+      </div>
     </div>
 
     <section class="stats container" aria-label="Dataset summary">

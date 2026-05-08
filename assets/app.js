@@ -8,6 +8,22 @@
   const STAGES = ['applied', 'interviewing', 'offer', 'rejected'];
   const KANBAN_COLS = ['saved', 'applied', 'interviewing', 'offer', 'rejected'];
 
+  // ─── Backend integration ──────────────────────────────────────────
+  // When the Flask backend (see DEPLOY.md) is deployed, set DEFAULT_API_BASE
+  // to its URL. The static viewer will then fetch live data from /api/jobs
+  // and surface Login / Sign up buttons. Until set, the page works as a
+  // pure static viewer using the bundled dashboard_jobs.json snapshot.
+  // Runtime override (no rebuild needed):
+  //   localStorage.setItem('cyberjobs:v1:apiBase', 'https://your-app.fly.dev')
+  const DEFAULT_API_BASE = '';
+  const API_BASE_URL = (() => {
+    try {
+      const stored = localStorage.getItem(NS + 'apiBase');
+      if (stored && /^https?:\/\//.test(stored)) return stored.replace(/\/$/, '');
+    } catch {}
+    return DEFAULT_API_BASE.replace(/\/$/, '');
+  })();
+
   // ─── Storage ───────────────────────────────────────────────────────
   const Storage = {
     get(key, fallback) {
@@ -123,6 +139,14 @@
     overdueList: $('overdueList'),
     exportApps: $('exportApps'),
     importApps: $('importApps'),
+    authBar: $('authBar'),
+    loginLink: $('loginLink'),
+    signupLink: $('signupLink'),
+    backendStatus: $('backendStatus'),
+    deployBanner: $('deployBanner'),
+    deployBannerClose: $('deployBannerClose'),
+    apiBaseInput: $('apiBaseInput'),
+    apiBaseSet: $('apiBaseSet'),
     resumeText: $('resumeText'),
     scoreResume: $('scoreResume'),
     clearResume: $('clearResume'),
@@ -1338,6 +1362,29 @@
       els.detailFollowState.dataset.level = s.level;
     });
 
+    // Deploy banner
+    if (els.deployBanner) {
+      const dismissed = Storage.get('deployBannerDismissed', false);
+      if (dismissed || API_BASE_URL) els.deployBanner.hidden = true;
+    }
+    if (els.deployBannerClose) {
+      els.deployBannerClose.addEventListener('click', () => {
+        Storage.set('deployBannerDismissed', true);
+        els.deployBanner.hidden = true;
+      });
+    }
+    if (els.apiBaseSet) {
+      els.apiBaseSet.addEventListener('click', () => {
+        const v = (els.apiBaseInput.value || '').trim();
+        if (!/^https?:\/\//.test(v)) {
+          alert('Enter a full URL starting with https://');
+          return;
+        }
+        try { localStorage.setItem(NS + 'apiBase', v.replace(/\/$/, '')); } catch {}
+        location.reload();
+      });
+    }
+
     // Export / import
     if (els.exportApps) els.exportApps.addEventListener('click', exportApps);
     if (els.importApps) els.importApps.addEventListener('change', (e) => {
@@ -1381,16 +1428,74 @@
     document.addEventListener('keydown', handleKey);
   }
 
+  // ─── Backend status probe ─────────────────────────────────────────
+  async function probeBackend() {
+    if (!API_BASE_URL) return { reachable: false };
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(API_BASE_URL + '/api/health', { signal: ctrl.signal, cache: 'no-cache' });
+      clearTimeout(timer);
+      if (!res.ok) return { reachable: false, status: res.status };
+      const data = await res.json();
+      return { reachable: true, ...data };
+    } catch (err) {
+      return { reachable: false, error: err.name === 'AbortError' ? 'timeout' : err.message };
+    }
+  }
+
+  function applyBackendUI(state_) {
+    if (!els.authBar) return;
+    if (API_BASE_URL && state_?.reachable) {
+      els.authBar.hidden = false;
+      els.loginLink.href = API_BASE_URL + '/#login';
+      els.signupLink.href = API_BASE_URL + '/#register';
+      els.backendStatus.dataset.state = 'live';
+      els.backendStatus.textContent = `Live · ${state_.jobs} jobs · scan every ${state_.scan_interval_min || 30}m`;
+    } else if (API_BASE_URL) {
+      els.authBar.hidden = false;
+      els.loginLink.href = API_BASE_URL + '/#login';
+      els.signupLink.href = API_BASE_URL + '/#register';
+      els.backendStatus.dataset.state = 'down';
+      els.backendStatus.textContent = `Backend unreachable · using snapshot`;
+    } else {
+      els.authBar.hidden = true;
+    }
+  }
+
   // ─── Boot ──────────────────────────────────────────────────────────
   async function load() {
+    const probe = await probeBackend();
+    applyBackendUI(probe);
+
     let payload;
+    let source = 'snapshot';
     try {
-      const res = await fetch('dashboard_jobs.json', { cache: 'no-cache' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      payload = await res.json();
+      if (API_BASE_URL && probe.reachable) {
+        const res = await fetch(API_BASE_URL + '/api/jobs', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        payload = await res.json();
+        source = 'live';
+      } else {
+        const res = await fetch('dashboard_jobs.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        payload = await res.json();
+      }
     } catch (err) {
-      els.jobs.innerHTML = `<li class="job"><div class="job__main"><h3 class="job__title">Failed to load job data</h3><div class="job__line muted">${escapeHtml(err.message)}</div></div></li>`;
-      return;
+      // If live failed, fall back to snapshot
+      if (source === 'live') {
+        try {
+          const res = await fetch('dashboard_jobs.json', { cache: 'no-cache' });
+          payload = await res.json();
+          source = 'snapshot-fallback';
+        } catch (e2) {
+          els.jobs.innerHTML = `<li class="job"><div class="job__main"><h3 class="job__title">Failed to load job data</h3><div class="job__line muted">${escapeHtml(err.message)}</div></div></li>`;
+          return;
+        }
+      } else {
+        els.jobs.innerHTML = `<li class="job"><div class="job__main"><h3 class="job__title">Failed to load job data</h3><div class="job__line muted">${escapeHtml(err.message)}</div></div></li>`;
+        return;
+      }
     }
     const rawJobs = Array.isArray(payload) ? payload : (payload.jobs || []);
     state.statsBlock = (!Array.isArray(payload) && payload.stats) || null;

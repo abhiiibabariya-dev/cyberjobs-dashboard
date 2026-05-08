@@ -115,6 +115,79 @@ kbd { color: var(--text); background: var(--surface-2); border-bottom-width: 2px
 }
 .nav-link:hover { color: var(--text); text-decoration: none; }
 
+/* Auth bar */
+.auth-bar {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-left: 6px; padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+.nav-btn--primary {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.nav-btn--primary:hover { background: rgba(94, 234, 212, 0.16); color: var(--accent); }
+.backend-status {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  padding: 3px 8px; border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: var(--bg);
+}
+.backend-status[data-state="live"] {
+  color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft);
+}
+.backend-status[data-state="live"]::before {
+  content: ""; display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); margin-right: 6px;
+  animation: pulse 2.4s infinite; vertical-align: middle;
+}
+.backend-status[data-state="down"] {
+  color: var(--warn);
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+/* Deploy banner */
+.deploy-banner {
+  margin-top: 22px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, rgba(94, 234, 212, 0.06), rgba(96, 165, 250, 0.04));
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+}
+.deploy-banner__head {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 8px; flex-wrap: wrap;
+}
+.deploy-banner__pill {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 3px 8px;
+  background: var(--accent-soft); color: var(--accent);
+  border: 1px solid var(--accent-line); border-radius: 3px;
+}
+.deploy-banner__head strong { color: var(--text); font-size: 14.5px; font-weight: 600; }
+.deploy-banner__body { color: var(--text-dim); font-size: 13.5px; margin: 0 0 14px; }
+.deploy-banner__actions {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  margin-bottom: 10px;
+}
+.deploy-banner__hint { font-size: 12.5px; margin: 8px 0 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.deploy-banner__input {
+  flex: 1 1 280px;
+  min-width: 220px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font: inherit; font-size: 12.5px;
+}
+.deploy-banner__input:focus { outline: none; border-color: var(--accent); }
+
 /* ─────────── Hero ─────────── */
 .hero {
   padding: 56px 24px 24px;
