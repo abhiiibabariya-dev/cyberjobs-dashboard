@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: cyberjobs
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: gunicorn dashboard:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 --access-logfile -
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.6"
+      - key: PORT
+        value: "10000"
+      - key: ADMIN_SECRET
+        generateValue: true
+      - key: SOC_STRICT
+        value: "true"
+      - key: REQUIRE_RESUME
+        value: "true"
+      - key: SCAN_INTERVAL_MINUTES
+        value: "30"
+      - key: BREVO_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true

@@ -62,16 +62,36 @@ logging.basicConfig(
 log = logging.getLogger("Dashboard")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
-JOBS_DB = os.path.join(SCRIPT_DIR, "dashboard_jobs.json")
-EMAILED_DB = os.path.join(SCRIPT_DIR, "dashboard_emailed.json")
-USERS_DB = os.path.join(SCRIPT_DIR, "users.json")
-APP_LOG_DB = os.path.join(SCRIPT_DIR, "application_log.json")
-BOOKMARKS_DB = os.path.join(SCRIPT_DIR, "bookmarks.json")
-APP_NOTES_DB = os.path.join(SCRIPT_DIR, "app_notes.json")
-REVIEWS_DB = os.path.join(SCRIPT_DIR, "company_reviews.json")
-SALARY_DB = os.path.join(SCRIPT_DIR, "salary_data.json")
-RECENT_SEARCHES_DB = os.path.join(SCRIPT_DIR, "recent_searches.json")
+# DATA_DIR allows hosts with persistent volumes (Fly.io) to keep user data
+# across container restarts. Falls back to script dir for local/Render free tier.
+DATA_DIR = os.environ.get("DATA_DIR") or SCRIPT_DIR
+RESUMES_DIR = os.path.join(DATA_DIR, "resumes")
+try:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(RESUMES_DIR, exist_ok=True)
+except OSError as _e:
+    log.warning(f"Could not create DATA_DIR or RESUMES_DIR: {_e}")
+
+CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
+if not os.path.exists(CONFIG_PATH) and os.path.exists(os.path.join(SCRIPT_DIR, "config.json")):
+    CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
+JOBS_DB = os.path.join(DATA_DIR, "dashboard_jobs.json")
+EMAILED_DB = os.path.join(DATA_DIR, "dashboard_emailed.json")
+USERS_DB = os.path.join(DATA_DIR, "users.json")
+APP_LOG_DB = os.path.join(DATA_DIR, "application_log.json")
+BOOKMARKS_DB = os.path.join(DATA_DIR, "bookmarks.json")
+APP_NOTES_DB = os.path.join(DATA_DIR, "app_notes.json")
+REVIEWS_DB = os.path.join(DATA_DIR, "company_reviews.json")
+SALARY_DB = os.path.join(DATA_DIR, "salary_data.json")
+RECENT_SEARCHES_DB = os.path.join(DATA_DIR, "recent_searches.json")
+
+# Feature flags read from env (overridable per deployment)
+SOC_STRICT = os.environ.get("SOC_STRICT", "true").lower() in ("1", "true", "yes")
+REQUIRE_RESUME = os.environ.get("REQUIRE_RESUME", "true").lower() in ("1", "true", "yes")
+try:
+    SCAN_INTERVAL_MIN = max(5, int(os.environ.get("SCAN_INTERVAL_MINUTES", "30")))
+except ValueError:
+    SCAN_INTERVAL_MIN = 30
 
 if os.path.exists(CONFIG_PATH):
     with open(CONFIG_PATH, "r") as f:
@@ -2494,6 +2514,32 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/api/health")
+def api_health():
+    """Lightweight liveness probe for Render/Fly.io health checks."""
+    return jsonify({
+        "status": "ok",
+        "jobs": len(ALL_JOBS),
+        "users": len(USERS),
+        "last_scan": STATS.get("last_scan"),
+        "soc_strict": SOC_STRICT,
+        "require_resume": REQUIRE_RESUME,
+        "scan_interval_min": SCAN_INTERVAL_MIN,
+    }), 200
+
+
+@app.route("/api/config")
+def api_config():
+    """Public-safe config flags consumed by the static gh-pages site."""
+    return jsonify({
+        "soc_strict": SOC_STRICT,
+        "require_resume": REQUIRE_RESUME,
+        "scan_interval_min": SCAN_INTERVAL_MIN,
+        "total_jobs": len(ALL_JOBS),
+        "last_scan": STATS.get("last_scan"),
+    }), 200
+
+
 @app.route("/api/jobs")
 def api_jobs():
     today = datetime.now().date().isoformat()
@@ -2952,7 +2998,8 @@ def api_register():
     return jsonify({
         "success": True, "user_id": user_id, "otp_required": False,
         "session_token": token,
-        "message": f"Registration successful! Welcome {name}!"
+        "needs_resume": REQUIRE_RESUME,
+        "message": f"Welcome {name}! Please upload your CV to activate the account." if REQUIRE_RESUME else f"Registration successful! Welcome {name}!"
     })
 
 
@@ -3004,10 +3051,19 @@ def api_login():
     token = generate_session_token()
     SESSIONS[token] = {"user_id": found_uid, "logged_in_at": datetime.now().isoformat()}
     log.info(f"[Auth] Login: {found_uid}")
+
+    # Check if resume is required and missing
+    needs_resume = False
+    if REQUIRE_RESUME:
+        rp = user.get("resume_path", "")
+        if not rp or not os.path.exists(rp):
+            needs_resume = True
+
     return jsonify({
         "success": True, "user_id": found_uid, "otp_required": False,
         "session_token": token,
-        "message": "Login successful!",
+        "needs_resume": needs_resume,
+        "message": "Login successful!" if not needs_resume else "Login successful — please upload your CV to continue.",
     })
 
 
