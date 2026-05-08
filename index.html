@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cyberjobs — SOC analyst job board</title>
+<meta name="description" content="Curated SOC, security analyst, and cyber operations roles, scraped from LinkedIn and refreshed periodically.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="container top__inner">
+    <a class="brand" href="./">
+      <span class="brand__mark" aria-hidden="true">[/]</span>
+      <span class="brand__name">cyberjobs</span>
+      <span class="brand__sub">soc analyst board</span>
+    </a>
+    <nav class="top__nav">
+      <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener">source</a>
+      <a href="#about">about</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero container">
+    <h1>Security roles, surfaced from the noise.</h1>
+    <p class="hero__lead">A snapshot of SOC analyst, security engineer, and cyber operations roles &mdash; collected from LinkedIn by an open-source scanner.</p>
+    <div class="stale-banner" id="staleBanner" hidden></div>
+  </section>
+
+  <section class="stats container" aria-label="Dataset summary">
+    <div class="stat">
+      <div class="stat__value" id="statJobs">&mdash;</div>
+      <div class="stat__label">total roles</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value" id="statCompanies">&mdash;</div>
+      <div class="stat__label">companies</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value" id="statLocations">&mdash;</div>
+      <div class="stat__label">locations</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value" id="statUpdated">&mdash;</div>
+      <div class="stat__label">last refreshed</div>
+    </div>
+  </section>
+
+  <section class="board container">
+    <div class="board__controls">
+      <label class="search">
+        <span class="search__icon" aria-hidden="true">⌕</span>
+        <input id="search" type="search" placeholder="Filter by title, company, or location…" autocomplete="off">
+      </label>
+      <div class="board__meta">
+        <select id="sort" aria-label="Sort">
+          <option value="recent">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="company">Company A–Z</option>
+        </select>
+        <span class="count" id="count">0 of 0</span>
+      </div>
+    </div>
+
+    <ol class="jobs" id="jobs" aria-live="polite"></ol>
+
+    <div class="empty" id="empty" hidden>
+      <p>No roles match that filter.</p>
+    </div>
+
+    <div class="loadmore" id="loadmoreWrap" hidden>
+      <button id="loadmore" type="button">Show more</button>
+    </div>
+  </section>
+
+  <section class="about container" id="about">
+    <h2>About this snapshot</h2>
+    <p>
+      The data on this page comes from <code>dashboard_jobs.json</code>, a file produced by
+      <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener"><code>cyberjobs-dashboard</code></a>
+      &mdash; a Python scanner that crawls LinkedIn for SOC and security roles. This page is a
+      static viewer hosted on GitHub Pages: it can display whatever data is in that JSON file at
+      build time, but it cannot run live scans, accept logins, or apply on your behalf.
+      Those features live in the Flask app in the same repository and require running it locally.
+    </p>
+    <p class="muted">
+      Updates to this page require pushing a new <code>dashboard_jobs.json</code> to the
+      <code>gh-pages</code> branch. Listings shown here are not endorsements; verify any role
+      against its source link before applying.
+    </p>
+  </section>
+</main>
+
+<footer class="bottom">
+  <div class="container bottom__inner">
+    <span>Built as a static viewer for the <a href="https://github.com/abhiiibabariya-dev/cyberjobs-dashboard" rel="noopener">cyberjobs-dashboard</a> project.</span>
+    <span class="muted">No tracking. No login. No backend.</span>
+  </div>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
