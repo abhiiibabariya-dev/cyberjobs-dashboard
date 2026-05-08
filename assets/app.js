@@ -10,7 +10,27 @@
     visible: PAGE_SIZE,
     query: '',
     sort: 'recent',
+    onlyNew: false,
   };
+
+  function readUrlState() {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    if (params.has('q')) state.query = params.get('q');
+    if (params.has('sort')) state.sort = params.get('sort');
+    if (params.has('new')) state.onlyNew = params.get('new') === '1';
+  }
+
+  function writeUrlState() {
+    const params = new URLSearchParams();
+    if (state.query) params.set('q', state.query);
+    if (state.sort && state.sort !== 'recent') params.set('sort', state.sort);
+    if (state.onlyNew) params.set('new', '1');
+    const hash = params.toString();
+    const newHash = hash ? '#' + hash : '';
+    if (window.location.hash !== newHash) {
+      history.replaceState(null, '', window.location.pathname + window.location.search + newHash);
+    }
+  }
 
   const els = {
     statJobs: document.getElementById('statJobs'),
@@ -25,6 +45,7 @@
     empty: document.getElementById('empty'),
     loadmoreWrap: document.getElementById('loadmoreWrap'),
     loadmore: document.getElementById('loadmore'),
+    toggleNew: document.getElementById('toggleNew'),
   };
 
   function fmtNum(n) {
@@ -81,6 +102,10 @@
     const q = state.query.trim().toLowerCase();
     let list = state.jobs;
 
+    if (state.onlyNew) {
+      list = list.filter((j) => j.is_new === true);
+    }
+
     if (q) {
       const tokens = q.split(/\s+/).filter(Boolean);
       list = list.filter((j) => {
@@ -98,11 +123,12 @@
       recent: (a, b) => (b._postedTs || 0) - (a._postedTs || 0),
       oldest: (a, b) => (a._postedTs || 0) - (b._postedTs || 0),
       company: (a, b) => (a.company || '').localeCompare(b.company || ''),
-    }[state.sort];
+    }[state.sort] || ((a, b) => 0);
 
     list = list.slice().sort(cmp);
     state.filtered = list;
     state.visible = PAGE_SIZE;
+    writeUrlState();
     render();
   }
 
@@ -123,9 +149,11 @@
 
     els.jobs.innerHTML = slice.map((j) => {
       const url = isSafeUrl(j.url) ? j.url : null;
-      const titleHtml = url
-        ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j.title || 'Untitled role')}</a>`
-        : escapeHtml(j.title || 'Untitled role');
+      const newBadge = j.is_new ? '<span class="job__new" title="Found in the latest scan">NEW</span>' : '';
+      const titleText = escapeHtml(j.title || 'Untitled role');
+      const titleInner = url
+        ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${titleText}</a>`
+        : titleText;
 
       const platform = j.platform ? `<span class="job__tag">${escapeHtml(j.platform)}</span>` : '';
       const sep = '<span class="job__sep" aria-hidden="true">•</span>';
@@ -136,18 +164,21 @@
         platform,
       ].filter(Boolean).join(' ');
 
-      const date = parseDate(j.posted_date) || parseDate(j.found_at);
-      const dateAttr = date ? ` title="${escapeHtml(fmtAbs(date))}"` : '';
-      const dateText = date ? fmtRelative(date) : '—';
+      const postedDate = parseDate(j.posted_date);
+      const foundDate = parseDate(j.found_at);
+      const date = postedDate || foundDate;
+      const datePrefix = postedDate ? '' : (foundDate ? 'found ' : '');
+      const dateAttr = date ? ` title="${escapeHtml(datePrefix + fmtAbs(date))}"` : '';
+      const dateText = date ? (datePrefix + fmtRelative(date)) : '—';
 
       const openLink = url
         ? `<a class="job__open" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open</a>`
         : '';
 
       return `
-        <li class="job">
+        <li class="job${j.is_new ? ' job--new' : ''}">
           <div class="job__main">
-            <h3 class="job__title">${titleHtml}</h3>
+            <h3 class="job__title">${newBadge}${titleInner}</h3>
             <div class="job__line">${lineParts}</div>
           </div>
           <div class="job__side">
@@ -165,18 +196,25 @@
 
     const companies = new Set();
     const locations = new Set();
+    let newCount = 0;
     for (const j of jobs) {
       if (j.company) companies.add(j.company.trim().toLowerCase());
       if (j.location) {
         const city = j.location.split(',')[0].trim();
         if (city) locations.add(city.toLowerCase());
       }
+      if (j.is_new) newCount++;
     }
     els.statCompanies.textContent = fmtNum(companies.size);
     els.statLocations.textContent = fmtNum(locations.size);
 
     const lastScan = parseDate(statsBlock && statsBlock.last_scan);
     els.statUpdated.textContent = lastScan ? fmtRelative(lastScan) : '—';
+
+    if (newCount > 0 && els.toggleNew) {
+      els.toggleNew.hidden = false;
+      els.toggleNew.querySelector('.toggle-new__count').textContent = fmtNum(newCount);
+    }
 
     if (lastScan) {
       const ageDays = (Date.now() - lastScan.getTime()) / (1000 * 60 * 60 * 24);
@@ -230,6 +268,33 @@
     state.visible += PAGE_SIZE;
     render();
   });
+  if (els.toggleNew) {
+    els.toggleNew.addEventListener('click', () => {
+      state.onlyNew = !state.onlyNew;
+      els.toggleNew.classList.toggle('is-active', state.onlyNew);
+      els.toggleNew.setAttribute('aria-pressed', String(state.onlyNew));
+      applyFilter();
+    });
+  }
+
+  // Keyboard: '/' focuses search (unless already typing in a field)
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    e.preventDefault();
+    els.search.focus();
+    els.search.select();
+  });
+
+  // Initialize state from URL hash
+  readUrlState();
+  if (els.search) els.search.value = state.query;
+  if (els.sort) els.sort.value = state.sort;
+  if (els.toggleNew && state.onlyNew) {
+    els.toggleNew.classList.add('is-active');
+    els.toggleNew.setAttribute('aria-pressed', 'true');
+  }
 
   load();
 })();

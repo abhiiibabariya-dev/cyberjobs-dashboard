@@ -57,8 +57,13 @@
     <div class="board__controls">
       <label class="search">
         <span class="search__icon" aria-hidden="true">⌕</span>
-        <input id="search" type="search" placeholder="Filter by title, company, or location…" autocomplete="off">
+        <input id="search" type="search" placeholder="Filter by title, company, or location… ( / )" autocomplete="off">
       </label>
+      <button id="toggleNew" class="toggle-new" type="button" aria-pressed="false" hidden>
+        <span class="toggle-new__dot" aria-hidden="true"></span>
+        <span>New only</span>
+        <span class="toggle-new__count">0</span>
+      </button>
       <div class="board__meta">
         <select id="sort" aria-label="Sort">
           <option value="recent">Newest first</option>
